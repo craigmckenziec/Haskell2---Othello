@@ -23,5 +23,5 @@ import Board
 -- This will need to extract the Board from the world state and draw it
 -- as a grid plus pieces.
 showGameState :: GameState -> String
-showGameState g = undefined
+showGameState g = "undefined"
 

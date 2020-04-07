@@ -11,7 +11,12 @@ gameLoop st
          putStr "Move: "
          move <- getLine
          let (x, y) = getCoord move
-         undefined
+         print (x, y)
+         if x == -1 
+             then 
+                 do putStrLn("That is an invalid coordinate, please check your input and try again")
+                    gameLoop st
+             else undefined
 
 main :: IO ()
 main = gameLoop initGameState
