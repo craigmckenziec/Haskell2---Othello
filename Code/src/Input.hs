@@ -10,14 +10,24 @@ import Data.Char(digitToInt)
 -- e.g. getCoord "D4" => (3,3) since coordinates are 0-based internally.
 --   or getCoord "F2" => (5,1)
 getCoord :: String -> (Int, Int)
-getCoord move = if length(move) == 2 
+getCoord move = if length(move) > 1 
                 then do let asciiValue = fromEnum (head move)
                         let reducedValue = asciiValue-65
-                        let secondValue = last move
-                        if isDigit secondValue == True
-                        then do let secondValueInt = digitToInt(secondValue) - 1
-                                if reducedValue < 7 && secondValueInt < 7
-                                    then (reducedValue, secondValueInt)
-                                    else (-1, 0)
-                        else (-1, 0)
+                        if reducedValue < 0 || reducedValue > 24
+                            then (-1, 0)
+                            else
+                                do let secondValue = drop 1 move
+                                   if checkDigits secondValue == True
+                                        then do let secondValueInt = (read secondValue :: Int) -1
+                                                if reducedValue < 25 && secondValueInt < 25
+                                                   then (reducedValue, secondValueInt)
+                                                   else (-1, 0)
+                                        else (-1, 0)
                 else (-1, 0)
+
+
+
+checkDigits :: [Char] -> Bool
+checkDigits [] = True
+checkDigits (x:xs) = do if isDigit x == True then checkDigits xs
+                        else False
