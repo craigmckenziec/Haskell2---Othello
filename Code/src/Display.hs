@@ -43,6 +43,6 @@ findPiece x y []                                           = "." --empty space c
 findPiece x y (((x_, y_), colour):xs) | (x, y) == (x_, y_) = getPieceStr colour
                                       | otherwise          = findPiece x y xs
 
-getPieceStr      :: Col -> String
+getPieceStr       :: Col -> String
 getPieceStr Black = "*"
 getPieceStr White = "0"
