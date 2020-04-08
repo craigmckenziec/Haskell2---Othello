@@ -42,7 +42,7 @@ initGameState = GameState initBoard Black
 -- or the move does not flip any opposing pieces)
 makeMove :: Board -> Col -> Position -> Maybe Board
 makeMove gameBoard colour (x,y) = 
-         if checkPosition gameBoard (x,y) == True
+         if checkPosition gameBoard (x,y) == True || (x >= size gameBoard || y >= size gameBoard)
             then Nothing
             else do let listWouldBeFlipped = postiionFlipsList gameBoard (x,y) colour
                     if length listWouldBeFlipped == 0
