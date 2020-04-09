@@ -112,7 +112,9 @@ checkScore = undefined
 -- Return true if the game is complete (that is, either the board is
 -- full or there have been two consecutive passes)
 gameOver :: Board -> Bool
-gameOver = undefined
+gameOver gameBoard = if (passes gameBoard) == 2 || length(pieces gameBoard) == ((size gameBoard) ^ 2)
+                            then True
+                            else False 
 
 -- An evaluation function for a minimax search. Given a board and a colour
 -- return an integer indicating how good the board is for that colour.
