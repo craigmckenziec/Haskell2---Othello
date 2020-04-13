@@ -119,4 +119,7 @@ gameOver gameBoard = if (passes gameBoard) == 2 || length(pieces gameBoard) == (
 -- An evaluation function for a minimax search. Given a board and a colour
 -- return an integer indicating how good the board is for that colour.
 evaluate :: Board -> Col -> Int
-evaluate = undefined
+evaluate (Board size passes []) searchColour = 0
+evaluate (Board size passes ((_, currentColour): qs)) searchColour = 
+            if currentColour == searchColour then evaluate (Board size passes qs) searchColour + 1
+            else evaluate (Board size passes qs) searchColour

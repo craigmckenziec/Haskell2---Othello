@@ -10,8 +10,11 @@ import Data.Maybe
 gameLoop :: GameState -> IO ()
 gameLoop st
     = do if gameOver (board st) == True 
-            then do putStrLn "Game over"
-                    return ()
+            then do let ammountWhite = evaluate (board st) White
+                    let ammountBlack = evaluate (board st) Black
+                    if (ammountBlack > ammountWhite) then putStrLn "Black Wins!"
+                    else if (ammountWhite > ammountBlack) then putStrLn "White Wins!"
+                    else putStrLn "Draw!"
             else 
             
             do  putStrLn ("\n" ++ showGameState st)
