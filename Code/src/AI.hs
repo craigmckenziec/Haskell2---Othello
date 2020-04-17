@@ -1,6 +1,12 @@
 module AI where
 
 import Board
+import System.Random (randomRIO)
+import Control.Monad
+import Debug.Trace
+import Data.Maybe
+
+
 
 data GameTree = GameTree { game_board :: Board,
                            game_turn :: Col,
@@ -17,6 +23,9 @@ data GameTree = GameTree { game_board :: Board,
 -- Rather than generating every possible move (which would result in an
 -- unmanageably large game tree!) it could, for example, generate moves
 -- according to various simpler strategies.
+
+trace' arg = traceShow arg arg
+
 buildTree :: (Board -> Col -> [Position]) -- ^ Move generator
              -> Board -- ^ board state
              -> Col -- ^ player to play next
@@ -60,5 +69,40 @@ updateGameState w = w
  In a complete implementation, 'updateGameState' should also check if either 
  player has won and display a message if so.
 -}
+
+
+evaluateMoves :: Col -> Board -> [Position] -> Position -> Int -> Position
+evaluateMoves colour board [] highestMove highestEvaluate = highestMove
+evaluateMoves colour board (q:qs) highestMove highestEvaluate = do case makeMove board colour q of
+                                                                        Nothing -> (0,0) --Should never be reached, used in safe manner
+                                                                        Just board' -> do let potentialMax = evaluate board' colour
+                                                                                          if potentialMax <= highestEvaluate
+                                                                                                then evaluateMoves colour board qs highestMove highestEvaluate
+                                                                                                else evaluateMoves colour board qs q potentialMax
+
+getPossible :: Col -> Board -> [Position]
+getPossible colour board = filter (\xpos -> isValid board xpos colour) [(xpos,ypos) | xpos <- [0..(size board -1)], ypos <- [0..(size board - 1)]]
+
+isValid :: Board -> Position -> Col -> Bool
+isValid board (xpos, ypos) colour = if (checkPosition board (xpos, ypos)) == False 
+                                            then do let listWouldBeFlipped = (postiionFlipsList board (xpos, ypos) colour)
+                                                    if (length listWouldBeFlipped) /= 0
+                                                      then True
+                                                      else False
+                                            else False
+
+getBestMoveOneDepth :: Board -> Col -> Position
+getBestMoveOneDepth board colour = do let listOfPositions = getPossible colour board
+                                      evaluateMoves colour board listOfPositions (0,0) (-1)
+
+getRandomMove :: Board -> Col -> IO Position
+getRandomMove board colour = do let listOfPositions = getPossible colour board
+                                chooseRandom listOfPositions
+
+
+chooseRandom :: [a]   -- ^ List to get random value from 
+             -> IO a  -- ^ Returns random value from list
+chooseRandom xs = do print (length xs)
+                     (xs !!) <$> randomRIO (0, length xs - 1)
 
 

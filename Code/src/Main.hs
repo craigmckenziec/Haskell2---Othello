@@ -6,6 +6,7 @@ import Input
 import AI
 
 import Data.Maybe
+import System.IO.Unsafe
 
 gameLoop :: GameState -> IO ()
 gameLoop st
@@ -15,17 +16,32 @@ gameLoop st
                     if (ammountBlack > ammountWhite) then putStrLn "Black Wins!"
                     else if (ammountWhite > ammountBlack) then putStrLn "White Wins!"
                     else putStrLn "Draw!"
-            else 
-            
-            do  putStrLn ("\n" ++ showGameState st)
-                putStrLn ((show (turn st)) ++ "'s turn (" ++ (getPieceStr (turn st)) ++ ")")
-                putStr "Move: "
-                move <- getLine
-                if move == "exit" then return ()
-                else if move == "pass" 
-                    then do let currentBoard = board st
-                            let newState = GameState (Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard)) (other (turn st))
-                            gameLoop newState
+            else do if (turn st) == Black 
+                        then if blackPlayer st == Human
+                            then humanGameLoop st
+                            else aiGameLoop st
+                    else if whitePlayer st == Human
+                            then humanGameLoop st
+                            else aiGameLoop st
+                
+                    
+
+aiGameLoop :: GameState -> IO ()
+aiGameLoop st = do let move = getBestMoveOneDepth (board st) (turn st)
+                   let new_board = makeMove (board st) (turn st) (move)
+                   if turn st == Black then gameLoop (GameState (fromJust new_board) White (blackPlayer st) (whitePlayer st))
+                                       else gameLoop (GameState (fromJust new_board) Black (blackPlayer st) (whitePlayer st))
+
+humanGameLoop :: GameState -> IO ()
+humanGameLoop st = do putStrLn ("\n" ++ showGameState st)
+                      putStrLn ((show (turn st)) ++ "'s turn (" ++ (getPieceStr (turn st)) ++ ")")
+                      putStr "Move: "
+                      move <- getLine
+                      if move == "exit" then return ()
+                        else if move == "pass" 
+                        then do let currentBoard = board st
+                                let newState = GameState (Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard)) (other (turn st)) (blackPlayer st) (whitePlayer st) 
+                                gameLoop newState
                         else  do
                                 let (x, y) = getCoord move
                                 -- print (x, y)
@@ -40,8 +56,9 @@ gameLoop st
                                                     do putStrLn("That is an invalid move, please try another")
                                                        gameLoop st
                                             else
-                                                if turn st == Black then gameLoop (GameState (fromJust new_board) White)
-                                                else gameLoop (GameState (fromJust new_board) Black)
+                                                if turn st == Black then gameLoop (GameState (fromJust new_board) White (blackPlayer st) (whitePlayer st))
+                                                else gameLoop (GameState (fromJust new_board) Black (blackPlayer st) (whitePlayer st))
+
 
 main :: IO ()
 main = do putStrLn ("Type 'exit' to exit.")

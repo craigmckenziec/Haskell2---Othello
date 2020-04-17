@@ -3,6 +3,9 @@ module Board where
 data Col = Black | White
   deriving (Show, Eq)
 
+data PlayerType = AI | Human
+  deriving (Show, Eq)
+
 other :: Col -> Col
 other Black = White
 other White = Black
@@ -33,9 +36,12 @@ initBoard = Board 8 0 [((3,3), Black), ((3, 4), White),
 -- most recent moves were).
 data GameState 
        = GameState { board :: Board,
-                     turn :: Col }
+                     turn :: Col, 
+                     blackPlayer :: PlayerType,
+                     whitePlayer :: PlayerType
+                     }
 
-initGameState = GameState initBoard Black
+initGameState = GameState initBoard Black Human AI
 
 -- Play a move on the board; return 'Nothing' if the move is invalid
 -- (e.g. outside the range of the board, there is a piece already there,
