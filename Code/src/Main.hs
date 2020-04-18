@@ -5,8 +5,10 @@ import Display
 import Input
 import AI
 
+import System.Environment
 import Data.Maybe
-import System.IO.Unsafe
+import Debug.Trace
+
 
 gameLoop :: GameState -> IO ()
 gameLoop st
@@ -64,4 +66,57 @@ main :: IO ()
 main = do putStrLn ("Type 'exit' to exit.")
           putStrLn ("Black piece: " ++ (getPieceStr Black))
           putStrLn ("White piece: " ++ (getPieceStr White))
-          gameLoop initGameState
+          
+          arguments <- getArgs
+          if length arguments == 0 
+              then gameLoop initGameState
+              else do case buildFromArgs arguments of 
+                            Nothing -> do putStrLn "Invalid Entry -- See below for usage"
+                                          putStrLn "Usage: ./Main <BlackPlayerType> (\"AI\" || \"Human\") <WhitePlayerType> (\"AI\" || \"Human\") <Size> (8..26)"
+                            Just newState -> gameLoop newState
+
+
+
+buildFromArgs :: [[Char]] -> Maybe GameState
+buildFromArgs arguments = do let argsNO = length arguments
+                             if argsNO /= 3 
+                                 then Nothing
+                                 else do case checkArgs arguments of
+                                                Nothing -> Nothing
+                                                Just result -> Just result 
+
+checkArgs :: [[Char]] -> Maybe GameState
+checkArgs argument = do let argPlayerBlack = checkPlayerType (argument !! 0)
+                        let argPlayerWhite = checkPlayerType (argument !! 1)
+                        let argSize = checkBoardSize (argument !! 2)
+                        if trace' (argPlayerBlack) /= Error && trace' (argPlayerWhite) /= Error 
+                                then if trace' (argSize) /= -1
+                                         then Just (GameState (getStartBoard argSize) Black argPlayerBlack argPlayerWhite)
+                                else Nothing
+                        else Nothing
+
+checkPlayerType :: String -> PlayerType
+checkPlayerType player = if player == "AI"
+                                then AI
+                         else if player == "Human"
+                                then Human
+                                else Error
+
+checkBoardSize :: String -> Int
+checkBoardSize size = if checkDigits size == True 
+                            then do let sizeInt = (read size :: Int)
+                                    if sizeInt < 27 && sizeInt > 7
+                                         then sizeInt
+                                         else -1
+                            else -1
+
+getStartBoard :: Int -> Board
+getStartBoard size = do let midpoint = div size 2
+                        Board size 0 (getStartPieces midpoint)
+
+getStartPieces :: Int -> [(Position, Col)]
+getStartPieces midPoint = do let midPointLess = midPoint - 1 
+                             [((midPointLess,midPointLess), Black), ((midPointLess, midPoint), White), ((midPoint,midPointLess), White), ((midPoint,midPoint), Black)]
+
+
+                             

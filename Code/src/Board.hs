@@ -3,7 +3,7 @@ module Board where
 data Col = Black | White
   deriving (Show, Eq)
 
-data PlayerType = AI | Human
+data PlayerType = AI | Human | Error
   deriving (Show, Eq)
 
 other :: Col -> Col
@@ -41,7 +41,7 @@ data GameState
                      whitePlayer :: PlayerType
                      }
 
-initGameState = GameState initBoard Black Human AI
+initGameState = GameState initBoard Black AI AI
 
 -- Play a move on the board; return 'Nothing' if the move is invalid
 -- (e.g. outside the range of the board, there is a piece already there,
@@ -54,7 +54,7 @@ makeMove gameBoard colour (x,y) =
                     if length listWouldBeFlipped == 0
                         then Nothing 
                     else do let newPieces = (((x,y),colour): pieces gameBoard)
-                            Just (Board 8 0 (flipFromPosition newPieces listWouldBeFlipped)) 
+                            Just (Board (size gameBoard) 0 (flipFromPosition newPieces listWouldBeFlipped)) 
 
 
 flipFromPosition :: [(Position, Col)] -> [Position] -> [(Position, Col)]
