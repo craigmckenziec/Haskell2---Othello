@@ -6,7 +6,9 @@ import Input
 import AI
 
 import Data.Maybe
+import System.IO
 import System.IO.Unsafe
+import System.Environment
 
 gameLoop :: GameState -> IO ()
 gameLoop st
@@ -26,7 +28,7 @@ gameLoop st
 
 
 
-aiGameLoop :: GameState -> IO (
+aiGameLoop :: GameState -> IO ()
 aiGameLoop st = do let move = getBestMoveOneDepth (board st) (turn st)
                    let new_board = makeMove (board st) (turn st) (move)
                    if turn st == Black then gameLoop (GameState (fromJust new_board) White (blackPlayer st) (whitePlayer st))
@@ -36,6 +38,7 @@ humanGameLoop :: GameState -> IO ()
 humanGameLoop st = do putStrLn ("\n" ++ showGameState st)
                       putStrLn ((show (turn st)) ++ "'s turn (" ++ (getPieceStr (turn st)) ++ ")")
                       putStr "Move: "
+                      hFlush stdout
                       move <- getLine
                       if move == "exit" then return ()
                         else if move == "pass"
