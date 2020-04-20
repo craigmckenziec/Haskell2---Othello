@@ -39,7 +39,7 @@ buildTree gen b c = let moves = gen b c in -- generated moves
         = case makeMove b c pos of -- try making the suggested move
                Nothing -> mkNextStates xs -- not successful, no new state
                Just b' -> (pos, buildTree gen b' (other c)) : mkNextStates xs
-                             -- successful, make move and build tree from 
+                             -- successful, make move and build tree from
                              -- here for opposite player
 
 -- Get the best next move from a (possibly infinite) game tree. This should
@@ -66,7 +66,7 @@ updateGameState w = w
  If both players are human players, the simple version above will suffice,
  since it does nothing.
 
- In a complete implementation, 'updateGameState' should also check if either 
+ In a complete implementation, 'updateGameState' should also check if either
  player has won and display a message if so.
 -}
 
@@ -84,7 +84,7 @@ getPossible :: Col -> Board -> [Position]
 getPossible colour board = filter (\xpos -> isValid board xpos colour) [(xpos,ypos) | xpos <- [0..(size board -1)], ypos <- [0..(size board - 1)]]
 
 isValid :: Board -> Position -> Col -> Bool
-isValid board (xpos, ypos) colour = if (checkPosition board (xpos, ypos)) == False 
+isValid board (xpos, ypos) colour = if (checkPosition board (xpos, ypos)) == False
                                             then do let listWouldBeFlipped = (postiionFlipsList board (xpos, ypos) colour)
                                                     if (length listWouldBeFlipped) /= 0
                                                       then True
@@ -100,9 +100,58 @@ getRandomMove board colour = do let listOfPositions = getPossible colour board
                                 chooseRandom listOfPositions
 
 
-chooseRandom :: [a]   -- ^ List to get random value from 
+chooseRandom :: [a]   -- ^ List to get random value from
              -> IO a  -- ^ Returns random value from list
 chooseRandom xs = do print (length xs)
                      (xs !!) <$> randomRIO (0, length xs - 1)
 
 
+getBestReversiInitialMove :: Board -> Col -> Position
+getBestReversiInitialMove board colour = do let midpoint = div (size board) 2
+                                            let numPieces = length (pieces board)
+                                            if numPieces == 1 then
+                                                if checkPosition board (midpoint-1, midpoint-1) then
+                                                    (midpoint-1, midpoint)
+                                                else if checkPosition board (midpoint, midpoint-1) then
+                                                    (midpoint, midpoint)
+                                                else if checkPosition board (midpoint-1, midpoint) then
+                                                    (midpoint-1, midpoint-1)
+                                                else
+                                                    (midpoint, midpoint-1)
+                                             else if numPieces == 2 then
+                                                 if checkPosition board (midpoint-1, midpoint-1) then
+                                                     if getColour board (midpoint-1, midpoint-1) == colour then
+                                                         if not (checkPosition board (midpoint-1, midpoint)) then
+                                                             (midpoint-1, midpoint)
+                                                         else
+                                                             (midpoint, midpoint-1)
+                                                     else
+                                                         if not (checkPosition board (midpoint, midpoint)) then
+                                                             (midpoint, midpoint)
+                                                         else
+                                                             (midpoint, midpoint-1)
+                                                 else if checkPosition board (midpoint, midpoint-1) then
+                                                     if getColour board (midpoint, midpoint-1) == colour then
+                                                         if not (checkPosition board (midpoint, midpoint)) then
+                                                             (midpoint, midpoint)
+                                                         else
+                                                             (midpoint-1, midpoint-1)
+                                                     else
+                                                         if not (checkPosition board (midpoint-1, midpoint)) then
+                                                             (midpoint-1, midpoint)
+                                                         else
+                                                             (midpoint, midpoint)
+                                                 else
+                                                     if getColour board (midpoint, midpoint) == colour then
+                                                         (midpoint, midpoint-1)
+                                                     else
+                                                         (midpoint-1, midpoint-1)
+                                              else
+                                                 if not (checkPosition board (midpoint-1, midpoint-1)) then
+                                                     (midpoint-1, midpoint-1)
+                                                 else if not (checkPosition board (midpoint, midpoint-1)) then
+                                                     (midpoint, midpoint-1)
+                                                 else if not (checkPosition board (midpoint-1, midpoint)) then
+                                                     (midpoint-1, midpoint)
+                                                 else
+                                                     (midpoint, midpoint)

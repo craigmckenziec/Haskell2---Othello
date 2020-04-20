@@ -13,13 +13,13 @@ getCoord :: String -> (Int, Int)
 getCoord move = if length(move) > 1
                 then do let asciiValue = fromEnum (head move)
                         let reducedValue = asciiValue-65
-                        if reducedValue < 0 || reducedValue > 24
+                        if reducedValue < 0 || reducedValue > 25
                             then (-1, 0)
                             else
                                 do let secondValue = drop 1 move
                                    if checkDigits secondValue == True
                                         then do let secondValueInt = (read secondValue :: Int)
-                                                if reducedValue < 25 && secondValueInt < 25
+                                                if reducedValue < 26 && secondValueInt < 26
                                                    then (reducedValue, secondValueInt)
                                                    else (-1, 0)
                                         else (-1, 0)
