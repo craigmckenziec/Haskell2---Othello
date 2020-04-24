@@ -9,6 +9,9 @@ data PlayerType = AI | Human | PLayerTypeError
 data GameMode = Othello | Reversi | GameModeError
   deriving (Show, Eq)
 
+data HintsToggle = On | Off | HintsToggleError
+  deriving (Show, Eq)
+
 other :: Col -> Col
 other Black = White
 other White = Black
@@ -42,10 +45,11 @@ data GameState
                      turn :: Col,
                      blackPlayer :: PlayerType,
                      whitePlayer :: PlayerType,
-                     gameMode :: GameMode
+                     gameMode :: GameMode,
+                     hintsToggle :: HintsToggle
                      }
 
-initGameState = GameState initBoard Black AI AI Othello
+initGameState = GameState initBoard Black AI AI Othello On
 
 -- Play a move on the board; return 'Nothing' if the move is invalid
 -- (e.g. outside the range of the board, there is a piece already there,
@@ -110,7 +114,9 @@ getColour (Board size passes (q:qs)) (x,y) =
              then snd q
              else getColour (Board size passes qs) (x,y)
 
-
+-- Play a move on the board; return 'Nothing' if the move is invalid
+-- (e.g. outside the range of the board, there is a piece already there,
+-- or the move does not flip any opposing pieces)
 makeReversiInitialMove :: Board -> Col -> Position -> Maybe Board
 makeReversiInitialMove gameBoard colour (x,y) =
       do let midpoint = div (size gameBoard) 2

@@ -111,41 +111,41 @@ getBestReversiInitialMove board colour = do let midpoint = div (size board) 2
                                             let numPieces = length (pieces board)
                                             if numPieces == 1 then
                                                 if checkPosition board (midpoint-1, midpoint-1) then
-                                                    (midpoint-1, midpoint)
-                                                else if checkPosition board (midpoint, midpoint-1) then
                                                     (midpoint, midpoint)
+                                                else if checkPosition board (midpoint, midpoint-1) then
+                                                    (midpoint-1, midpoint)
                                                 else if checkPosition board (midpoint-1, midpoint) then
-                                                    (midpoint-1, midpoint-1)
-                                                else
                                                     (midpoint, midpoint-1)
+                                                else
+                                                    (midpoint-1, midpoint-1)
                                              else if numPieces == 2 then
                                                  if checkPosition board (midpoint-1, midpoint-1) then
                                                      if getColour board (midpoint-1, midpoint-1) == colour then
-                                                         if not (checkPosition board (midpoint-1, midpoint)) then
-                                                             (midpoint-1, midpoint)
+                                                         if not (checkPosition board (midpoint, midpoint)) then
+                                                             (midpoint, midpoint)
                                                          else
                                                              (midpoint, midpoint-1)
                                                      else
-                                                         if not (checkPosition board (midpoint, midpoint)) then
-                                                             (midpoint, midpoint)
+                                                         if not (checkPosition board (midpoint-1, midpoint)) then
+                                                             (midpoint-1, midpoint)
                                                          else
                                                              (midpoint, midpoint-1)
                                                  else if checkPosition board (midpoint, midpoint-1) then
                                                      if getColour board (midpoint, midpoint-1) == colour then
+                                                         if not (checkPosition board (midpoint-1, midpoint)) then
+                                                             (midpoint-1, midpoint)
+                                                         else
+                                                             (midpoint-1, midpoint-1)
+                                                     else
                                                          if not (checkPosition board (midpoint, midpoint)) then
                                                              (midpoint, midpoint)
                                                          else
                                                              (midpoint-1, midpoint-1)
-                                                     else
-                                                         if not (checkPosition board (midpoint-1, midpoint)) then
-                                                             (midpoint-1, midpoint)
-                                                         else
-                                                             (midpoint, midpoint)
                                                  else
                                                      if getColour board (midpoint, midpoint) == colour then
-                                                         (midpoint, midpoint-1)
-                                                     else
                                                          (midpoint-1, midpoint-1)
+                                                     else
+                                                         (midpoint, midpoint-1)
                                               else
                                                  if not (checkPosition board (midpoint-1, midpoint-1)) then
                                                      (midpoint-1, midpoint-1)
