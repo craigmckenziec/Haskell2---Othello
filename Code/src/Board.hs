@@ -49,7 +49,7 @@ data GameState
                      hintsToggle :: HintsToggle
                      }
 
-initGameState = GameState initBoard Black AI AI Othello On
+initGameState = GameState initBoard Black Human AI Othello On
 
 -- Play a move on the board; return 'Nothing' if the move is invalid
 -- (e.g. outside the range of the board, there is a piece already there,
