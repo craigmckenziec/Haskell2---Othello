@@ -11,7 +11,12 @@ import Debug.Trace
 import System.IO
 import Data.List.Split
 import Text.Read
+import Data.Char
+import Control.Concurrent
+import Control.Concurrent.Async
 
+hintWaitTime :: Int
+hintWaitTime = 30-- time delay before hint is given (seconds)
 
 gameLoop :: GameState -> IO ()
 gameLoop st
@@ -30,7 +35,6 @@ gameLoop st
                             else aiGameLoop st
 
 
-
 aiGameLoop :: GameState -> IO ()
 aiGameLoop st = do let move = getBestMoveOneDepth (board st) (turn st)
                    let new_board = makeMove (board st) (turn st) (move)
@@ -40,9 +44,11 @@ aiGameLoop st = do let move = getBestMoveOneDepth (board st) (turn st)
 humanGameLoop :: GameState -> IO ()
 humanGameLoop st = do putStrLn ("\n" ++ showGameState st)
                       putStrLn ((show (turn st)) ++ "'s turn (" ++ (getPieceStr (turn st)) ++ ")")
+                      hintGiver <- async (giveHint st getBestMoveOneDepth)
                       putStr "Move: "
                       hFlush stdout
                       move <- getLine
+                      cancel hintGiver
                       if move == "exit" then return ()
                         else if move == "pass"
                         then do let currentBoard = board st
@@ -66,7 +72,15 @@ humanGameLoop st = do putStrLn ("\n" ++ showGameState st)
                                                 if turn st == Black then gameLoop (GameState (fromJust new_board) White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
                                                 else gameLoop (GameState (fromJust new_board) Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
 
-optionsLoop    :: GameState -> IO()
+giveHint    :: GameState -> (Board -> Col -> Position) -> IO ()
+giveHint st getMove = if hintsToggle st == On then do threadDelay (hintWaitTime*10^6)
+                                                      let (x, y) = getMove (board st) (turn st)
+                                                      putStrLn ("\n\nHint: " ++ [toEnum (65+x)::Char] ++ (show (y)) ++ "\n")
+                                                      putStr "Move: "
+                                                      hFlush stdout
+              else return ()
+
+optionsLoop    :: GameState -> IO ()
 optionsLoop st = do putStrLn ("\nOptions")
                     putStrLn ("Use '<option>=<selection>' to change an option")
                     putStrLn ("Use command 'restart' to restart game")
@@ -90,7 +104,7 @@ checkOption xs st = do let optionChange = splitOn "=" xs
                        else if xs == "restart" then startGame (blackPlayer st) (whitePlayer st) (size (board st)) (gameMode st) (hintsToggle st)
                        else optionsLoop st
 
-setOption                            :: String -> String -> GameState -> IO()
+setOption                             :: String -> String -> GameState -> IO()
 setOption "black player" selection st = if selection == "AI" then optionsLoop (GameState (board st) (turn st) AI (whitePlayer st) (gameMode st) (hintsToggle st))
                                         else if selection == "Human" then optionsLoop (GameState (board st) (turn st) Human (whitePlayer st) (gameMode st) (hintsToggle st))
                                         else do putStrLn "\nerror: black player can either be 'AI' or 'Human'"
@@ -122,7 +136,7 @@ setOption "hints" selection st = if selection == "On" then optionsLoop (GameStat
                                          optionsLoop st
 
 
-getPlayerType                           :: GameState -> PlayerType
+getPlayerType    :: GameState -> PlayerType
 getPlayerType st | turn st == Black = blackPlayer st
                  | turn st == White = whitePlayer st
 
@@ -194,9 +208,11 @@ startGame blackPlayerType whitePlayerType boardSize Reversi hintsToggleSetting =
 startReversi                                :: GameState -> IO ()
 startReversi st | getPlayerType st == Human = do putStrLn ("\n" ++ showGameState st)
                                                  putStrLn ((show (turn st)) ++ "'s turn (" ++ (getPieceStr (turn st)) ++ ")")
+                                                 hintGiver <- async (giveHint st getBestReversiInitialMove)
                                                  putStr "Move: "
                                                  hFlush stdout
                                                  move <- getLine
+                                                 cancel hintGiver
                                                  if move == "exit" then return ()
                                                  else if move == "options" then optionsLoop st
                                                  else do let (x, y) = getCoord move
