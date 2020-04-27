@@ -38,8 +38,8 @@ gameLoop st
 aiGameLoop :: GameState -> IO ()
 aiGameLoop st = do let move = getBestMoveOneDepth (board st) (turn st)
                    let new_board = makeMove (board st) (turn st) (move)
-                   if turn st == Black then gameLoop (GameState (fromJust new_board) White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
-                                       else gameLoop (GameState (fromJust new_board) Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
+                   if turn st == Black then gameLoop (GameState (fromJust new_board) White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st) ((previousBoards st) ++ [(board st)]))
+                                       else gameLoop (GameState (fromJust new_board) Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st) ((previousBoards st) ++ [(board st)]))
 
 humanGameLoop :: GameState -> IO ()
 humanGameLoop st = do putStrLn ("\n" ++ showGameState st)
@@ -52,10 +52,16 @@ humanGameLoop st = do putStrLn ("\n" ++ showGameState st)
                       if move == "exit" then return ()
                         else if move == "pass"
                         then do let currentBoard = board st
-                                let newState = GameState (Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard)) (other (turn st)) (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st)
+                                let newState = GameState (Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard)) (other (turn st)) (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st) (previousBoards st)
                                 gameLoop newState
                         else if move == "options"
                         then optionsLoop st
+                        else if move == "undo"
+                        then if (length (previousBoards st) == 0) 
+                                then do putStrLn("You can't undo on the first move!")
+                                        gameLoop st
+                                else do let newState = undoMove st
+                                        gameLoop newState
                         else  do
                                 let (x, y) = getCoord move
                                 if x == -1
@@ -69,8 +75,15 @@ humanGameLoop st = do putStrLn ("\n" ++ showGameState st)
                                                     do putStrLn("That is an invalid move, please try another")
                                                        gameLoop st
                                             else
-                                                if turn st == Black then gameLoop (GameState (fromJust new_board) White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
-                                                else gameLoop (GameState (fromJust new_board) Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
+                                                if turn st == Black then gameLoop (GameState (fromJust new_board) White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st) ((previousBoards st) ++ [(board st)]))
+                                                else gameLoop (GameState (fromJust new_board) Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st) ((previousBoards st) ++ [(board st)]))
+
+
+undoMove :: GameState -> GameState
+undoMove (GameState board turn blackPlayer whitePlayer gameMode hintsToggle previousBoards) 
+                    = do let lastMove = last previousBoards
+                         let firstMoves = init previousBoards
+                         GameState lastMove (other turn) blackPlayer whitePlayer gameMode hintsToggle firstMoves
 
 giveHint    :: GameState -> (Board -> Col -> Position) -> IO ()
 giveHint st getMove = if hintsToggle st == On then do threadDelay (hintWaitTime*10^6)
@@ -105,12 +118,12 @@ checkOption xs st = do let optionChange = splitOn "=" xs
                        else optionsLoop st
 
 setOption                             :: String -> String -> GameState -> IO()
-setOption "black player" selection st = if selection == "AI" then optionsLoop (GameState (board st) (turn st) AI (whitePlayer st) (gameMode st) (hintsToggle st))
-                                        else if selection == "Human" then optionsLoop (GameState (board st) (turn st) Human (whitePlayer st) (gameMode st) (hintsToggle st))
+setOption "black player" selection st = if selection == "AI" then optionsLoop (GameState (board st) (turn st) AI (whitePlayer st) (gameMode st) (hintsToggle st) (previousBoards st))
+                                        else if selection == "Human" then optionsLoop (GameState (board st) (turn st) Human (whitePlayer st) (gameMode st) (hintsToggle st) (previousBoards st))
                                         else do putStrLn "\nerror: black player can either be 'AI' or 'Human'"
                                                 optionsLoop st
-setOption "white player" selection st = if selection == "AI" then optionsLoop (GameState (board st) (turn st) (blackPlayer st) AI (gameMode st) (hintsToggle st))
-                                        else if selection == "Human" then optionsLoop (GameState (board st) (turn st) (blackPlayer st) Human (gameMode st) (hintsToggle st))
+setOption "white player" selection st = if selection == "AI" then optionsLoop (GameState (board st) (turn st) (blackPlayer st) AI (gameMode st) (hintsToggle st) (previousBoards st))
+                                        else if selection == "Human" then optionsLoop (GameState (board st) (turn st) (blackPlayer st) Human (gameMode st) (hintsToggle st) (previousBoards st))
                                         else do putStrLn "\nerror: black player can either be 'AI' or 'Human'"
                                                 optionsLoop st
 setOption "size" selection st = do let new_size = readMaybe selection :: Maybe Int
@@ -130,8 +143,8 @@ setOption "game mode" selection st = if selection == "Othello" then
                                                 optionsLoop st
                                      else do putStrLn "\nerror: game mode can either be 'Othello' or 'Reversi'"
                                              optionsLoop st
-setOption "hints" selection st = if selection == "On" then optionsLoop (GameState (board st) (turn st) (blackPlayer st) (whitePlayer st) (gameMode st) On)
-                                 else if selection == "Off" then optionsLoop (GameState (board st) (turn st) (blackPlayer st) (whitePlayer st) (gameMode st) Off)
+setOption "hints" selection st = if selection == "On" then optionsLoop (GameState (board st) (turn st) (blackPlayer st) (whitePlayer st) (gameMode st) On (previousBoards st))
+                                 else if selection == "Off" then optionsLoop (GameState (board st) (turn st) (blackPlayer st) (whitePlayer st) (gameMode st) Off (previousBoards st))
                                  else do putStrLn "\nerror: hintsToggle can either be 'On' or 'Off'"
                                          optionsLoop st
 
@@ -200,8 +213,8 @@ startGame                                                                      :
 startGame blackPlayerType whitePlayerType boardSize Othello hintsToggleSetting = do let midPoint = boardSize `div` 2
                                                                                     let midPointLess = midPoint - 1
                                                                                     let gameBoard = Board boardSize 0 [((midPointLess, midPointLess), Black), ((midPointLess, midPoint), White), ((midPoint, midPointLess), White), ((midPoint, midPoint), Black)]
-                                                                                    gameLoop (GameState gameBoard Black blackPlayerType whitePlayerType Othello hintsToggleSetting)
-startGame blackPlayerType whitePlayerType boardSize Reversi hintsToggleSetting = startReversi (GameState (Board boardSize 0 []) Black blackPlayerType whitePlayerType Reversi hintsToggleSetting)
+                                                                                    gameLoop (GameState gameBoard Black blackPlayerType whitePlayerType Othello hintsToggleSetting [])
+startGame blackPlayerType whitePlayerType boardSize Reversi hintsToggleSetting = startReversi (GameState (Board boardSize 0 []) Black blackPlayerType whitePlayerType Reversi hintsToggleSetting [])
 
 
 
@@ -222,19 +235,19 @@ startReversi st | getPlayerType st == Human = do putStrLn ("\n" ++ showGameState
                                                                  if isNothing new_board then do putStrLn("That is an invalid move, in Reversi, the first 4 moves must be within the center 2x2 square. Please try another")
                                                                                                 startReversi st
                                                                  else if length (pieces (fromJust new_board)) == 4 then
-                                                                         if turn st == Black then gameLoop (GameState (fromJust new_board) White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
-                                                                         else gameLoop (GameState (fromJust new_board) Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
+                                                                         if turn st == Black then gameLoop (GameState (fromJust new_board) White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st) [])
+                                                                         else gameLoop (GameState (fromJust new_board) Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st) [])
                                                                  else
-                                                                     if turn st == Black then startReversi (GameState (fromJust new_board) White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
-                                                                     else startReversi (GameState (fromJust new_board) Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
+                                                                     if turn st == Black then startReversi (GameState (fromJust new_board) White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st) [])
+                                                                     else startReversi (GameState (fromJust new_board) Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st) [])
                 | otherwise = do let move = getBestReversiInitialMove (board st) (turn st)
                                  let new_board = fromJust (makeReversiInitialMove (board st) (turn st) move)
                                  if length (pieces new_board) == 4 then
-                                    if turn st == Black then gameLoop (GameState new_board White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
-                                    else gameLoop (GameState new_board Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
+                                    if turn st == Black then gameLoop (GameState new_board White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st) [])
+                                    else gameLoop (GameState new_board Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st) [])
                                  else
-                                    if turn st == Black then startReversi (GameState new_board White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
-                                    else startReversi (GameState new_board Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
+                                    if turn st == Black then startReversi (GameState new_board White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st) [])
+                                    else startReversi (GameState new_board Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st) [])
 
 
 
