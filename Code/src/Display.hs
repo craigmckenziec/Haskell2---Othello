@@ -24,7 +24,7 @@ import Data.Char
 -- This will need to extract the Board from the world state and draw it
 -- as a grid plus pieces.
 showGameState   :: GameState -> String
-showGameState g = "   A" ++ (getLetter 0 (size (board g))) ++ (getRow 0 (size (board g)) (pieces (board g)))
+showGameState g = "   A" ++ (getLetter 0 (size (board g))) ++ (getRow 0 (size (board g)) (pieces (board g))) ++ "\n"
 
 getLetter                 :: Int -> Int -> String
 getLetter x n | x == n-1  = ""
@@ -39,7 +39,7 @@ getPiece x y n pieces | x == n    = ""
                       | otherwise = " " ++ (findPiece x y pieces) ++ (getPiece (x+1) y n pieces)
 
 findPiece                                                  :: Int -> Int -> [(Position, Col)] -> String
-findPiece x y []                                           = "." --empty space character
+findPiece x y []                                           = "■" --empty space character
 findPiece x y (((x_, y_), colour):xs) | (x, y) == (x_, y_) = getPieceStr colour
                                       | otherwise          = findPiece x y xs
 

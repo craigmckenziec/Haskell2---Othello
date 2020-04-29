@@ -5,181 +5,243 @@ import Display
 import Input
 import AI
 
-import System.Environment
-import Data.Maybe
-import Debug.Trace
-import System.IO
-import Data.List.Split
-import Text.Read
-import Data.Char
 import Control.Concurrent
 import Control.Concurrent.Async
+import Control.Monad
+import Control.Monad.IO.Class
+import Data.Char
+import Data.List.Split
+import Data.Maybe
+import Debug.Trace
+import System.Environment
+import System.IO
+import Text.Read
+import UI.NCurses
 
-hintWaitTime :: Int
+hintWaitTime :: Integer
 hintWaitTime = 30-- time delay before hint is given (seconds)
 
-gameLoop :: GameState -> IO ()
-gameLoop st
+data Action =  Options | Pass | Quit | Move String
+  deriving Eq
+
+gameLoop :: GameState -> Window -> Curses ()
+gameLoop st w
     = do if gameOver (board st) == True
             then do let ammountWhite = evaluate (board st) White
                     let ammountBlack = evaluate (board st) Black
-                    if (ammountBlack > ammountWhite) then putStrLn "Black Wins!"
-                    else if (ammountWhite > ammountBlack) then putStrLn "White Wins!"
-                    else putStrLn "Draw!"
+                    updateWindow w $ do clear
+                                        moveCursor 0 0
+                    if (ammountBlack > ammountWhite) then do updateWindow w (drawString "Black Wins!") -- *****sort out game over screen *************
+                    else if (ammountWhite > ammountBlack) then updateWindow w (drawString "White Wins!") -- *****sort out game over screen *************
+                    else updateWindow w (drawString "Draw!") -- *****sort out game over screen *************
             else do if (turn st) == Black
                         then if blackPlayer st == Human
-                            then humanGameLoop st
-                            else aiGameLoop st
+                            then humanGameLoop st w
+                            else aiGameLoop st w
                     else if whitePlayer st == Human
-                            then humanGameLoop st
-                            else aiGameLoop st
+                            then humanGameLoop st w
+                            else aiGameLoop st w
 
 
-aiGameLoop :: GameState -> IO ()
-aiGameLoop st = do let move = getBestMoveOneDepth (board st) (turn st)
-                   let new_board = makeMove (board st) (turn st) (move)
-                   if turn st == Black then gameLoop (GameState (fromJust new_board) White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
-                                       else gameLoop (GameState (fromJust new_board) Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
+aiGameLoop :: GameState -> Window -> Curses ()
+aiGameLoop st w = do let move = getBestMoveOneDepth (board st) (turn st)
+                     let new_board = makeMove (board st) (turn st) (move)
+                     if turn st == Black then gameLoop st {board = fromJust new_board, turn = White} w
+                                         else gameLoop st {board = fromJust new_board, turn = Black} w
 
-humanGameLoop :: GameState -> IO ()
-humanGameLoop st = do putStrLn ("\n" ++ showGameState st)
-                      putStrLn ((show (turn st)) ++ "'s turn (" ++ (getPieceStr (turn st)) ++ ")")
-                      hintGiver <- async (giveHint st getBestMoveOneDepth)
-                      putStr "Move: "
-                      hFlush stdout
-                      move <- getLine
-                      cancel hintGiver
-                      if move == "exit" then return ()
-                        else if move == "pass"
-                        then do let currentBoard = board st
-                                let newState = GameState (Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard)) (other (turn st)) (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st)
-                                gameLoop newState
-                        else if move == "options"
-                        then optionsLoop st
-                        else  do
-                                let (x, y) = getCoord move
-                                if x == -1
-                                    then
-                                        do putStrLn("That is an invalid coordinate, please check your input and try again")
-                                           gameLoop st
-                                    else
-                                        do  let new_board = makeMove (board st) (turn st) (x, y)
-                                            if isNothing new_board
-                                                then
-                                                    do putStrLn("That is an invalid move, please try another")
-                                                       gameLoop st
-                                            else
-                                                if turn st == Black then gameLoop (GameState (fromJust new_board) White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
-                                                else gameLoop (GameState (fromJust new_board) Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
+humanGameLoop :: GameState -> Window -> Curses ()
+humanGameLoop st w = do updateWindow w $ do clear
+                                            moveCursor 0 0
+                                            drawString (showGameState st)
+                                            drawString ((show (turn st)) ++ "'s turn (" ++ (getPieceStr (turn st)) ++ ")\n")
+                                            drawString ("move: ")
+                        render
+                        move <- getMove st w getBestMoveOneDepth
+                        if move == Quit then return ()
+                          else if move == Pass
+                              then do let currentBoard = board st
+                                      let newState = st {board = Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard)}
+                                      gameLoop newState w
+                          else if move == Options
+                              then optionsLoop st w gameLoop
+                          else  do
+                                  let (x, y) = getCoord ((\(Move coordinateString) -> coordinateString) move)
+                                  if x == -1
+                                      then
+                                          do updateWindow w $ do moveCursor (toInteger (size (board st)) + 3) 0
+                                                                 clearLine
+                                                                 drawString "That is an invalid coordinate, please check your input and try again" -- implement proper invalid screen
+                                             render
+                                             gameLoop st w
+                                      else
+                                          do  let new_board = makeMove (board st) (turn st) (x, y)
+                                              if isNothing new_board
+                                                  then
+                                                      do updateWindow w $ do moveCursor (toInteger (size (board st)) + 2) 0
+                                                                             clearLine
+                                                                             drawString "That is an invalid move, please try another" -- implement proper invalid screen
+                                                         render
+                                                         gameLoop st w
+                                              else
+                                                  if turn st == Black then gameLoop (st {board = fromJust new_board, turn = White}) w
+                                                  else gameLoop (st {board = fromJust new_board, turn = Black}) w
 
-giveHint    :: GameState -> (Board -> Col -> Position) -> IO ()
-giveHint st getMove = if hintsToggle st == On then do threadDelay (hintWaitTime*10^6)
-                                                      let (x, y) = getMove (board st) (turn st)
-                                                      putStrLn ("\n\nHint: " ++ [toEnum (65+x)::Char] ++ (show (y)) ++ "\n")
-                                                      putStr "Move: "
-                                                      hFlush stdout
-              else return ()
 
-optionsLoop    :: GameState -> IO ()
-optionsLoop st = do putStrLn ("\nOptions")
-                    putStrLn ("Use '<option>=<selection>' to change an option")
-                    putStrLn ("Use command 'restart' to restart game")
-                    putStrLn ("Use command 'resume' to return to game")
-                    putStrLn ("black player (AI/Human): " ++ show (blackPlayer st))
-                    putStrLn ("white player (AI/Human): " ++ show (whitePlayer st))
-                    putStrLn ("size (8..26): " ++ show (size (board st)))
-                    putStrLn ("game mode (Othello/Reversi): " ++ show (gameMode st))
-                    putStrLn ("hints (On/Off): " ++ show (hintsToggle st))
-                    putStr "option: "
-                    hFlush stdout
-                    input <- getLine
-                    checkOption input st
+getMove :: GameState -> Window -> (Board -> Col -> Position) -> Curses Action
+getMove st w getBestMove = loop "" where
+    loop input = do ev <- getEvent w (Just (hintWaitTime*10^3))
+                    case ev of
+                         Nothing -> do giveHint st w input getBestMove
+                                       loop input
+                         Just (EventCharacter '\ESC') -> return Options
+                         Just (EventCharacter '\n') -> return (Move input)
+                         Just (EventSpecialKey KeyBackspace)
+                           | length input > 0 -> do updateWindow w (drawString "\b \b")
+                                                    render
+                                                    loop (init input)
+                           | otherwise -> loop ""
+                         Just (EventCharacter c)
+                           | isAlphaNum c -> do updateWindow w (drawString [c])
+                                                render
+                                                loop (input ++ [c])
+                           | otherwise -> loop input
+                         Just _ -> loop input
 
-checkOption       :: String -> GameState -> IO()
-checkOption xs st = do let optionChange = splitOn "=" xs
-                       if length optionChange == 2 then setOption (optionChange !! 0) (optionChange !! 1) st
-                       else if xs == "resume" then
-                               if (gameMode st) == Reversi && (length (pieces (board (st)))) < 4 then startReversi st
-                               else gameLoop st
-                       else if xs == "restart" then startGame (blackPlayer st) (whitePlayer st) (size (board st)) (gameMode st) (hintsToggle st)
-                       else optionsLoop st
+giveHint :: GameState -> Window -> String -> (Board -> Col -> Position) -> Curses ()
+giveHint st w input getBestMove | hintsToggle st == On = do let (x, y) = getBestMove (board st) (turn st)
+                                                            updateWindow w $ do moveCursor (toInteger (size (board st)) + 2) 0
+                                                                                clearLine
+                                                                                drawString ("Hint: " ++ [toEnum (65+x)::Char] ++ (show (y)))
+                                                                                drawString "\nmove: "
+                                                            render
+                                                            when (length input > 0) (do updateWindow w (drawString input)
+                                                                                        render)
+                                | otherwise = return ()
 
-setOption                             :: String -> String -> GameState -> IO()
-setOption "black player" selection st = if selection == "AI" then optionsLoop (GameState (board st) (turn st) AI (whitePlayer st) (gameMode st) (hintsToggle st))
-                                        else if selection == "Human" then optionsLoop (GameState (board st) (turn st) Human (whitePlayer st) (gameMode st) (hintsToggle st))
-                                        else do putStrLn "\nerror: black player can either be 'AI' or 'Human'"
-                                                optionsLoop st
-setOption "white player" selection st = if selection == "AI" then optionsLoop (GameState (board st) (turn st) (blackPlayer st) AI (gameMode st) (hintsToggle st))
-                                        else if selection == "Human" then optionsLoop (GameState (board st) (turn st) (blackPlayer st) Human (gameMode st) (hintsToggle st))
-                                        else do putStrLn "\nerror: black player can either be 'AI' or 'Human'"
-                                                optionsLoop st
-setOption "size" selection st = do let new_size = readMaybe selection :: Maybe Int
-                                   if new_size /= Nothing && 8 <= fromJust new_size && fromJust new_size <=26 then
-                                      if fromJust new_size /= size (board st) then startGame (blackPlayer st) (whitePlayer st) (fromJust new_size) (gameMode st) (hintsToggle st)
-                                      else do putStrLn ("\nerror: the size is already " ++ (show new_size))
-                                              optionsLoop st
-                                   else do putStrLn "\nerror: size must be an integer between 8 and 26 (inclusive)"
-                                           optionsLoop st
-setOption "game mode" selection st = if selection == "Othello" then
-                                        if gameMode st /= Othello then startGame (blackPlayer st) (whitePlayer st) (size (board st)) Othello (hintsToggle st)
-                                        else do putStrLn "\nerror: you are already playing Othello however you can restart using the 'restart' command in the options menu"
-                                                optionsLoop st
-                                     else if selection == "Reversi" then
-                                        if gameMode st /= Reversi then startGame (blackPlayer st) (whitePlayer st) (size (board st)) Reversi (hintsToggle st)
-                                        else do putStrLn "\nerror: you are already playing Reversi however you can restart using the 'restart' command in the options menu"
-                                                optionsLoop st
-                                     else do putStrLn "\nerror: game mode can either be 'Othello' or 'Reversi'"
-                                             optionsLoop st
-setOption "hints" selection st = if selection == "On" then optionsLoop (GameState (board st) (turn st) (blackPlayer st) (whitePlayer st) (gameMode st) On)
-                                 else if selection == "Off" then optionsLoop (GameState (board st) (turn st) (blackPlayer st) (whitePlayer st) (gameMode st) Off)
-                                 else do putStrLn "\nerror: hintsToggle can either be 'On' or 'Off'"
-                                         optionsLoop st
+optionsLoop      :: GameState -> Window -> (GameState -> Window -> Curses ()) -> Curses ()
+optionsLoop st w returnScreen = do updateWindow w $ do clear
+                                                       moveCursor 0 0
+                                                       drawString "Options\n\n"
+                                                       drawString ("black player (AI/Human): " ++ show (blackPlayer st) ++ "\n")
+                                                       drawString ("white player (AI/Human): " ++ show (whitePlayer st) ++ "\n")
+                                                       drawString ("size (8..26): " ++ show (size (board st)) ++ "\n")
+                                                       drawString ("game mode (Othello/Reversi): " ++ show (gameMode st) ++ "\n")
+                                                       drawString ("hints (On/Off): " ++ show (hintsToggle st) ++ "\n\n")
+                                                       drawString "change black player: b\n"
+                                                       drawString "change white player: w\n"
+                                                       drawString "change size: s\n"
+                                                       drawString "change game mode: g\n"
+                                                       drawString "toggle hints: h\n\n"
+                                                       drawString "resume: escape\n"
+                                                       drawString "restart: r\n"
+                                                       drawString "quit: q\n"
+                                   render
+                                   loop where
+                                       loop = do ev <- getEvent w Nothing
+                                                 case ev of
+                                                      Nothing -> loop
+                                                      Just (EventCharacter c)
+                                                        | c == 'b' || c == 'B' -> if (blackPlayer st) == AI then optionsLoop (st {blackPlayer = Human}) w returnScreen
+                                                                                  else optionsLoop (st {blackPlayer = AI}) w returnScreen
+                                                        | c == 'w' || c == 'W' -> if (whitePlayer st) == AI then optionsLoop (st {whitePlayer = Human}) w returnScreen
+                                                                                  else optionsLoop (st {whitePlayer = AI}) w returnScreen
+                                                        | c == 's' || c == 'S' -> do new_size <- getNewSize w
+                                                                                     if new_size == Nothing then optionsLoop st w returnScreen
+                                                                                     else if 8 <= fromJust new_size && fromJust new_size <= 26 then
+                                                                                         if fromJust new_size /= (size (board st)) then startGame (st {board = ((board st) {size = fromJust new_size}), turn = Black}) w
+                                                                                         else do updateWindow w $ do moveCursor 18 0
+                                                                                                                     clearLine
+                                                                                                                     drawString ("error: the size is already " ++ (show (fromJust new_size)))
+                                                                                                 render
+                                                                                                 loop
+                                                                                     else do updateWindow w $ do moveCursor 18 0
+                                                                                                                 clearLine
+                                                                                                                 drawString "error: size must be an integer between 8 and 26 (inclusive)"
+                                                                                             render
+                                                                                             loop
+                                                        | c == 'g' || c == 'G' -> if (gameMode st) == Othello then startGame (st {gameMode = Reversi, turn = Black}) w
+                                                                                  else startGame (st {gameMode = Othello, turn = Black}) w
+                                                        | c == 'h' || c == 'H' -> if (hintsToggle st) == On then optionsLoop (st {hintsToggle = Off}) w returnScreen
+                                                                                  else optionsLoop (st {hintsToggle = On}) w returnScreen
+                                                        | c == '\ESC' -> returnScreen st w
+                                                        | c == 'r' || c == 'R' -> startGame (st {turn = Black}) w
+                                                        | c == 'q' || c == 'Q' -> return ()
+                                                      Just _ -> loop
 
+getNewSize :: Window -> Curses (Maybe Int)
+getNewSize w = do updateWindow w $ do moveCursor 18 0
+                                      clearLine
+                                      drawString "size: "
+                  render
+                  loop "" where
+      loop input = do ev <- getEvent w Nothing
+                      case ev of
+                           Nothing -> loop input
+                           Just (EventCharacter c)
+                             | c == '\ESC' -> return Nothing
+                             | c == '\n' -> if input /= "" then return (Just (read input :: Int))
+                                            else return Nothing
+                             | isDigit c -> do updateWindow w (drawString [c])
+                                               render
+                                               loop (input ++ [c])
+                             | otherwise -> loop input
+                           Just (EventSpecialKey KeyBackspace)
+                             | length input > 0 -> do updateWindow w (drawString "\b \b")
+                                                      render
+                                                      loop (init input)
+                             | otherwise -> loop ""
+                           Just _ -> loop input
 
 getPlayerType    :: GameState -> PlayerType
 getPlayerType st | turn st == Black = blackPlayer st
                  | turn st == White = whitePlayer st
 
-
-
 main :: IO ()
-main = do putStrLn ("Type 'exit' to exit or 'options' to change options.")
-          putStrLn ("Black piece: " ++ (getPieceStr Black))
-          putStrLn ("White piece: " ++ (getPieceStr White))
+main = runCurses $ do setEcho False
+                      w <- defaultWindow
+                      setCursorMode CursorInvisible
+                      arguments <- liftIO getArgs
+                      if length arguments == 0 then mainMenu initGameState w
+                      else do case checkArgs arguments of
+                                  Nothing -> do updateWindow w $ do drawString "Invalid Entry -- See below for usage\n"
+                                                                    drawString "Usage: ./Main <BlackPlayerType> (\"AI\" || \"Human\") <WhitePlayerType> (\"AI\" || \"Human\") <Size> (8..26) <GameMode> (\"Othello\" || \"Reversi\") <HintsToggle> (\"On\" || \"Off\")"
+                                                render
+                                  Just st -> mainMenu st w
 
-          arguments <- getArgs
-          if length arguments == 0
-              then gameLoop initGameState
-              else do case buildFromArgs arguments of
-                            Nothing -> do putStrLn "Invalid Entry -- See below for usage"
-                                          putStrLn "Usage: ./Main <BlackPlayerType> (\"AI\" || \"Human\") <WhitePlayerType> (\"AI\" || \"Human\") <Size> (8..26) <GameMode> (\"Othello\" || \"Reversi\") <HintsToggle> (\"On\" || \"Off\")"
-                            Just playGame -> playGame
+mainMenu :: GameState -> Window -> Curses ()
+mainMenu st w = do updateWindow w $ do clear
+                                       moveCursor 0 0
+                                       drawString "Othello, the videogame!\n"
+                                       drawString "Start: enter\n"
+                                       drawString "Options: escape\n"
+                                       drawString "Quit: q\n"
+                   render
+                   loop where
+                        loop = do ev <- getEvent w Nothing
+                                  case ev of
+                                       Nothing -> loop
+                                       Just (EventCharacter c) | c == '\n' -> startGame st w
+                                                               | c == '\ESC' -> optionsLoop st w (mainMenu)
+                                                               | c == 'q' -> return ()
+                                                               | c == 'Q' -> return ()
+                                       Just _ -> loop
 
-
-
-buildFromArgs :: [[Char]] -> Maybe (IO ())
-buildFromArgs arguments = do let argsNO = length arguments
-                             if argsNO /= 5
-                                 then Nothing
-                                 else do case checkArgs arguments of
-                                                Nothing -> Nothing
-                                                Just result -> Just result
-
-checkArgs :: [[Char]] -> Maybe (IO ())
-checkArgs argument = do let argPlayerBlack = checkPlayerType (argument !! 0)
-                        let argPlayerWhite = checkPlayerType (argument !! 1)
-                        let argSize = checkBoardSize (argument !! 2)
-                        let argGameMode = checkGameMode (argument !! 3)
-                        let argHintsToggle = checkHintsToggle (argument !! 4)
-                        if trace' (argPlayerBlack) /= PLayerTypeError && trace' (argPlayerWhite) /= PLayerTypeError
-                                then if trace' (argSize) /= -1
-                                         then if trace' (argGameMode) /= GameModeError
-                                                 then if trace' (argHintsToggle) /= HintsToggleError
-                                                         then Just (startGame argPlayerBlack argPlayerWhite argSize argGameMode argHintsToggle)
-                                                 else Nothing
+checkArgs :: [[Char]] -> Maybe (GameState)
+checkArgs arguments = do if length arguments /= 5 then Nothing
+                         else do let argPlayerBlack = checkPlayerType (arguments !! 0)
+                                 let argPlayerWhite = checkPlayerType (arguments !! 1)
+                                 let argSize = checkBoardSize (arguments !! 2)
+                                 let argGameMode = checkGameMode (arguments !! 3)
+                                 let argHintsToggle = checkHintsToggle (arguments !! 4)
+                                 if trace' (argPlayerBlack) /= PLayerTypeError && trace' (argPlayerWhite) /= PLayerTypeError
+                                         then if trace' (argSize) /= -1
+                                                  then if trace' (argGameMode) /= GameModeError
+                                                          then if trace' (argHintsToggle) /= HintsToggleError
+                                                                  then Just (GameState (Board argSize 0 []) Black argPlayerBlack argPlayerWhite argGameMode argHintsToggle)
+                                                          else Nothing
+                                                  else Nothing
                                          else Nothing
-                                else Nothing
-                        else Nothing
+                                 else Nothing
 
 checkPlayerType :: String -> PlayerType
 checkPlayerType player = if player == "AI"
@@ -196,45 +258,47 @@ checkBoardSize size = if checkDigits size == True
                                          else -1
                             else -1
 
-startGame                                                                      :: PlayerType -> PlayerType -> Int -> GameMode -> HintsToggle -> IO ()
-startGame blackPlayerType whitePlayerType boardSize Othello hintsToggleSetting = do let midPoint = boardSize `div` 2
-                                                                                    let midPointLess = midPoint - 1
-                                                                                    let gameBoard = Board boardSize 0 [((midPointLess, midPointLess), Black), ((midPointLess, midPoint), White), ((midPoint, midPointLess), White), ((midPoint, midPoint), Black)]
-                                                                                    gameLoop (GameState gameBoard Black blackPlayerType whitePlayerType Othello hintsToggleSetting)
-startGame blackPlayerType whitePlayerType boardSize Reversi hintsToggleSetting = startReversi (GameState (Board boardSize 0 []) Black blackPlayerType whitePlayerType Reversi hintsToggleSetting)
+startGame :: GameState -> Window -> Curses ()
+startGame st w | gameMode st == Othello = do let midPoint = (size (board st)) `div` 2
+                                             let midPointLess = midPoint - 1
+                                             let gameBoard = Board (size (board st)) 0 [((midPointLess, midPointLess), Black), ((midPointLess, midPoint), White), ((midPoint, midPointLess), White), ((midPoint, midPoint), Black)]
+                                             gameLoop (st {board = gameBoard, turn = Black}) w
+               | otherwise = startReversi (st {board = Board (size (board st)) 0 [], turn = Black}) w
 
-
-
-startReversi                                :: GameState -> IO ()
-startReversi st | getPlayerType st == Human = do putStrLn ("\n" ++ showGameState st)
-                                                 putStrLn ((show (turn st)) ++ "'s turn (" ++ (getPieceStr (turn st)) ++ ")")
-                                                 hintGiver <- async (giveHint st getBestReversiInitialMove)
-                                                 putStr "Move: "
-                                                 hFlush stdout
-                                                 move <- getLine
-                                                 cancel hintGiver
-                                                 if move == "exit" then return ()
-                                                 else if move == "options" then optionsLoop st
-                                                 else do let (x, y) = getCoord move
-                                                         if x == -1 then do putStrLn("That is an invalid coordinate, please check your input and try again")
-                                                                            startReversi st
-                                                         else do let new_board = makeReversiInitialMove (board st) (turn st) (x, y)
-                                                                 if isNothing new_board then do putStrLn("That is an invalid move, in Reversi, the first 4 moves must be within the center 2x2 square. Please try another")
-                                                                                                startReversi st
-                                                                 else if length (pieces (fromJust new_board)) == 4 then
-                                                                         if turn st == Black then gameLoop (GameState (fromJust new_board) White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
-                                                                         else gameLoop (GameState (fromJust new_board) Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
-                                                                 else
-                                                                     if turn st == Black then startReversi (GameState (fromJust new_board) White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
-                                                                     else startReversi (GameState (fromJust new_board) Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
-                | otherwise = do let move = getBestReversiInitialMove (board st) (turn st)
-                                 let new_board = fromJust (makeReversiInitialMove (board st) (turn st) move)
-                                 if length (pieces new_board) == 4 then
-                                    if turn st == Black then gameLoop (GameState new_board White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
-                                    else gameLoop (GameState new_board Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
-                                 else
-                                    if turn st == Black then startReversi (GameState new_board White (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
-                                    else startReversi (GameState new_board Black (blackPlayer st) (whitePlayer st) (gameMode st) (hintsToggle st))
+startReversi                                :: GameState -> Window -> Curses ()
+startReversi st w | getPlayerType st == Human = do updateWindow w $ do clear
+                                                                       moveCursor 0 0
+                                                                       drawString (showGameState st)
+                                                                       drawString ((show (turn st)) ++ "'s turn (" ++ (getPieceStr (turn st)) ++ ")\n")
+                                                                       drawString ("move: ")
+                                                   render
+                                                   move <- getMove st w getBestReversiInitialMove
+                                                   if move == Quit then return ()
+                                                   else if move == Options then optionsLoop st w startReversi
+                                                   else do let (x, y) = getCoord ((\(Move coordinateString) -> coordinateString) move)
+                                                           if x == -1 then do updateWindow w $ do moveCursor (toInteger (size (board st)) + 2) 0
+                                                                                                  clearLine
+                                                                                                  drawString "That is an invalid coordinate, please check your input and try again"
+                                                                              render
+                                                                              startReversi st w
+                                                           else do let new_board = makeReversiInitialMove (board st) (turn st) (x, y)
+                                                                   if isNothing new_board then do updateWindow w $ do moveCursor (toInteger (size (board st)) + 2) 0
+                                                                                                                      clearLine
+                                                                                                                      drawString "That is an invalid move, in Reversi, the first 4 moves must be within the center 2x2 square. Please try another"
+                                                                                                  render
+                                                                                                  startReversi st w
+                                                                   else if length (pieces (fromJust new_board)) == 4 then gameLoop (st {board = fromJust new_board, turn = White}) w
+                                                                   else
+                                                                       if turn st == Black then startReversi (st {board = fromJust new_board, turn = White}) w
+                                                                       else startReversi (st {board = fromJust new_board, turn = Black}) w
+                  | otherwise = do let move = getBestReversiInitialMove (board st) (turn st)
+                                   let new_board = fromJust (makeReversiInitialMove (board st) (turn st) move)
+                                   if length (pieces new_board) == 4 then
+                                      if turn st == Black then gameLoop (st {board = new_board, turn = White}) w
+                                      else gameLoop (st {board = new_board, turn = Black}) w
+                                   else
+                                      if turn st == Black then startReversi (st {board = new_board, turn = White}) w
+                                      else startReversi (st {board = new_board, turn = Black}) w
 
 
 
