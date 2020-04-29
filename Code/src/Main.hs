@@ -21,7 +21,7 @@ import UI.NCurses
 hintWaitTime :: Integer
 hintWaitTime = 30-- time delay before hint is given (seconds)
 
-data Action =  Options | Pass | Quit | Move String
+data Action =  Options | Pass | Undo | Quit | Move String
   deriving Eq
 
 gameLoop :: GameState -> Window -> Curses ()
@@ -46,8 +46,8 @@ gameLoop st w
 aiGameLoop :: GameState -> Window -> Curses ()
 aiGameLoop st w = do let move = getBestMoveOneDepth (board st) (turn st)
                      let new_board = makeMove (board st) (turn st) (move)
-                     if turn st == Black then gameLoop st {board = fromJust new_board, turn = White} w
-                                         else gameLoop st {board = fromJust new_board, turn = Black} w
+                     if turn st == Black then gameLoop st {board = fromJust new_board, turn = White, previousBoards = ((previousBoards st) ++ [(board st)])} w
+                                         else gameLoop st {board = fromJust new_board, turn = Black, previousBoards = ((previousBoards st) ++ [(board st)])} w
 
 humanGameLoop :: GameState -> Window -> Curses ()
 humanGameLoop st w = do updateWindow w $ do clear
@@ -64,6 +64,16 @@ humanGameLoop st w = do updateWindow w $ do clear
                                       gameLoop newState w
                           else if move == Options
                               then optionsLoop st w gameLoop
+                          else if move == Undo
+                              then if (length (previousBoards st) == 0)
+                                then do updateWindow w $ do moveCursor (toInteger (size (board st)) + 2) 0
+                                                            clearLine
+                                                            drawString ("You can't undo on the first move!\n")
+                                                            drawString "move: "
+                                        render
+                                        gameLoop st w
+                                else do let newState = undoMove st
+                                        gameLoop newState w
                           else  do
                                   let (x, y) = getCoord ((\(Move coordinateString) -> coordinateString) move)
                                   if x == -1
@@ -83,8 +93,8 @@ humanGameLoop st w = do updateWindow w $ do clear
                                                          render
                                                          gameLoop st w
                                               else
-                                                  if turn st == Black then gameLoop (st {board = fromJust new_board, turn = White}) w
-                                                  else gameLoop (st {board = fromJust new_board, turn = Black}) w
+                                                  if turn st == Black then gameLoop (st {board = fromJust new_board, turn = White, previousBoards = ((previousBoards st) ++ [(board st)])}) w
+                                                  else gameLoop (st {board = fromJust new_board, turn = Black, previousBoards = ((previousBoards st) ++ [(board st)])}) w
 
 
 getMove :: GameState -> Window -> (Board -> Col -> Position) -> Curses Action
@@ -93,19 +103,26 @@ getMove st w getBestMove = loop "" where
                     case ev of
                          Nothing -> do giveHint st w input getBestMove
                                        loop input
-                         Just (EventCharacter '\ESC') -> return Options
-                         Just (EventCharacter '\n') -> return (Move input)
                          Just (EventSpecialKey KeyBackspace)
                            | length input > 0 -> do updateWindow w (drawString "\b \b")
                                                     render
                                                     loop (init input)
                            | otherwise -> loop ""
                          Just (EventCharacter c)
+                           | c == '\ESC' -> return Options
+                           | c == '\n' -> return (Move input)
+                           | c == '-' -> return Undo
                            | isAlphaNum c -> do updateWindow w (drawString [c])
                                                 render
                                                 loop (input ++ [c])
                            | otherwise -> loop input
                          Just _ -> loop input
+
+undoMove :: GameState -> GameState
+undoMove (GameState board turn blackPlayer whitePlayer gameMode hintsToggle previousBoards)
+                    = do let lastMove = last previousBoards
+                         let firstMoves = init previousBoards
+                         GameState lastMove (other turn) blackPlayer whitePlayer gameMode hintsToggle firstMoves
 
 giveHint :: GameState -> Window -> String -> (Board -> Col -> Position) -> Curses ()
 giveHint st w input getBestMove | hintsToggle st == On = do let (x, y) = getBestMove (board st) (turn st)
@@ -237,7 +254,7 @@ checkArgs arguments = do if length arguments /= 5 then Nothing
                                          then if trace' (argSize) /= -1
                                                   then if trace' (argGameMode) /= GameModeError
                                                           then if trace' (argHintsToggle) /= HintsToggleError
-                                                                  then Just (GameState (Board argSize 0 []) Black argPlayerBlack argPlayerWhite argGameMode argHintsToggle)
+                                                                  then Just (GameState (Board argSize 0 []) Black argPlayerBlack argPlayerWhite argGameMode argHintsToggle [])
                                                           else Nothing
                                                   else Nothing
                                          else Nothing
