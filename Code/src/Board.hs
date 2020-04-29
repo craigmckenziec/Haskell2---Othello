@@ -46,10 +46,11 @@ data GameState
                      blackPlayer :: PlayerType,
                      whitePlayer :: PlayerType,
                      gameMode :: GameMode,
-                     hintsToggle :: HintsToggle
+                     hintsToggle :: HintsToggle,
+                     previousBoards :: [Board]
                      }
 
-initGameState = GameState initBoard Black Human AI Othello On
+initGameState = GameState initBoard Black Human AI Othello On []
 
 -- Play a move on the board; return 'Nothing' if the move is invalid
 -- (e.g. outside the range of the board, there is a piece already there,
