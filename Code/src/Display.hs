@@ -1,48 +1,89 @@
 module Display where
 
 import Board
+
+import Control.Monad
 import Data.Char
+import Data.Int
+import UI.NCurses
 
-{- Displaying the board. For example, you could render it as follows,
- - where 'O' is a white piece and '*' is a black piece:
+axisColour :: Curses ColorID
+axisColour = do grey <- getGrey
+                newColorID ColorBlack grey 1
 
-   A B C D E F G H
- 1 . . . . . . . .
- 2 . . . . . . . .
- 3 . . . . . . . .
- 4 . . . O * . . .
- 5 . . . * O . . .
- 6 . . . . . . . .
- 7 . . . . . . . .
- 8 . . . . . . . .
+backgroundColour :: Curses ColorID
+backgroundColour = do grey <- getGrey
+                      newColorID grey grey 2
 
- -}
+blackColour :: Curses ColorID
+blackColour = newColorID ColorBlack ColorBlack 3
 
--- Given a game state, return a String which represents the state of the
--- board.
---
--- This will need to extract the Board from the world state and draw it
--- as a grid plus pieces.
-showGameState   :: GameState -> String
-showGameState g = "   A" ++ (getLetter 0 (size (board g))) ++ (getRow 0 (size (board g)) (pieces (board g))) ++ "\n"
+boardColour :: Curses ColorID
+boardColour = newColorID ColorGreen ColorGreen 4
 
-getLetter                 :: Int -> Int -> String
-getLetter x n | x == n-1  = ""
-              | otherwise = [' ', chr(66+x)] ++ (getLetter (x+1) n)
+getGrey :: Curses Color
+getGrey = do let grey = Color (fromIntegral 1 :: Int16)
+             defineColor grey 500 500 500
+             return grey
 
-getRow                        :: Int -> Int -> [(Position, Col)] -> String
-getRow y n pieces | y == n    = []
-                  | otherwise = "\n " ++ (show y) ++ (getPiece 0 y n pieces) ++ (getRow (y+1) n pieces)
+whiteColour :: Curses ColorID
+whiteColour = newColorID ColorWhite ColorWhite 5
 
-getPiece                          :: Int -> Int -> Int -> [(Position, Col)] -> String
-getPiece x y n pieces | x == n    = ""
-                      | otherwise = " " ++ (findPiece x y pieces) ++ (getPiece (x+1) y n pieces)
+drawGameState :: GameState -> Window -> Curses ()
+drawGameState st w = do let boardSize = size (board st)
+                        updateWindow w clear
+                        drawBackground w boardSize
+                        drawXAxis w boardSize
+                        drawYAxis w boardSize
+                        drawBoard w boardSize
+                        drawPieces (pieces (board st)) w
+                        updateWindow w $ do setColor defaultColorID
+                                            moveCursor (toInteger (getYCoord(boardSize))) 0
+                                            drawString ((show (turn st)) ++ "'s turn\n")
+                                            drawString ("move: ")
+                        render
 
-findPiece                                                  :: Int -> Int -> [(Position, Col)] -> String
-findPiece x y []                                           = "■" --empty space character
-findPiece x y (((x_, y_), colour):xs) | (x, y) == (x_, y_) = getPieceStr colour
-                                      | otherwise          = findPiece x y xs
+drawBackground :: Window -> Int -> Curses ()
+drawBackground w boardSize = do colourID <- backgroundColour
+                                updateWindow w (setColor colourID)
+                                forM_ [(x,y) | x<-[0..(getXCoord(boardSize))], y<-[0..(getYCoord(boardSize-1)+1)]] $ \(x,y) -> updateWindow w $ do moveCursor y x
+                                                                                                                                                   drawString " "
 
-getPieceStr       :: Col -> String
-getPieceStr Black = "*"
-getPieceStr White = "0"
+drawXAxis :: Window -> Int -> Curses ()
+drawXAxis w boardSize = do colourID <- axisColour
+                           updateWindow w (setColor colourID)
+                           forM_ [x | x <- [0..(boardSize-1)]] $ \x -> updateWindow w $ do moveCursor 0 (getXCoord x)
+                                                                                           drawString [chr(65+x)]
+
+drawYAxis :: Window -> Int -> Curses ()
+drawYAxis w boardSize = do colourID <- axisColour
+                           updateWindow w (setColor colourID)
+                           forM_ [y | y <- [0..(min 9 (boardSize-1))]] $ \y -> updateWindow w $ do moveCursor (getYCoord y) 1
+                                                                                                   drawString (show y)
+                           when (boardSize-1 > 9) (do forM_ [y | y <- [10..(boardSize-1)]] $ \y -> updateWindow w $ do moveCursor (getYCoord y) 0
+                                                                                                                       drawString (show y))
+
+drawBoard :: Window -> Int -> Curses ()
+drawBoard w boardSize = do colourID <- boardColour
+                           updateWindow w (setColor colourID)
+                           forM_ [(x,y) | x<-[0..(boardSize-1)], y<-[0..(boardSize-1)]] $ \(x,y) -> updateWindow w $ do moveCursor (getYCoord y) (getXCoord x)
+                                                                                                                        drawString " "
+
+drawPieces :: [(Position, Col)] -> Window -> Curses ()
+drawPieces [] w = return ()
+drawPieces (((x, y), colour):xs) w = do setPieceColour colour w
+                                        updateWindow w $ do moveCursor (getYCoord y) (getXCoord x)
+                                                            drawString " "
+                                        drawPieces xs w
+
+getXCoord :: Int -> Integer
+getXCoord x = toInteger (2*x+3)
+
+getYCoord :: Int -> Integer
+getYCoord y = toInteger (2*y+2)
+
+setPieceColour :: Col -> Window -> Curses ()
+setPieceColour Black w = do colourID <- blackColour
+                            updateWindow w (setColor colourID)
+setPieceColour White w = do colourID <- whiteColour
+                            updateWindow w (setColor colourID)
