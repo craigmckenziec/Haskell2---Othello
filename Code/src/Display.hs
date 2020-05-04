@@ -67,20 +67,23 @@ drawBoard :: Window -> Int -> Curses ()
 drawBoard w boardSize = do colourID <- boardColour
                            updateWindow w (setColor colourID)
                            forM_ [(x,y) | x<-[0..(boardSize-1)], y<-[0..(boardSize-1)]] $ \(x,y) -> updateWindow w $ do moveCursor (getYCoord y) (getXCoord x)
-                                                                                                                        drawString " "
+                                                                                                                        drawString pieceString
 
 drawPieces :: [(Position, Col)] -> Window -> Curses ()
 drawPieces [] w = return ()
 drawPieces (((x, y), colour):xs) w = do setPieceColour colour w
                                         updateWindow w $ do moveCursor (getYCoord y) (getXCoord x)
-                                                            drawString " "
+                                                            drawString pieceString
                                         drawPieces xs w
 
 getXCoord :: Int -> Integer
-getXCoord x = toInteger (2*x+3)
+getXCoord x = toInteger (3*x+3)
 
 getYCoord :: Int -> Integer
 getYCoord y = toInteger (2*y+2)
+
+pieceString :: String
+pieceString = "  "
 
 setPieceColour :: Col -> Window -> Curses ()
 setPieceColour Black w = do colourID <- blackColour
