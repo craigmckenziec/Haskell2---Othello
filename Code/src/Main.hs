@@ -68,17 +68,17 @@ aiGameLoop st w = do if (length (getPossible (turn st) (board st)) == 0)
                                     let newState = st {board = Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard), turn = (other (turn st))}
                                     gameLoop newState w
                             else do drawGameState st w
-                                    pause w boardDisplayTime
-                                    let move = getBestMoveOneDepth (board st) (turn st)
-                                    let new_board = makeMove (board st) (turn st) (move)
-                                    let newState =  st {board = fromJust new_board, turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}
-                                    gameLoop newState w
+                                    action <- pause st w gameLoop boardDisplayTime
+                                    if action == Options then optionsLoop st w gameLoop
+                                    else do let move = getBestMoveOneDepth (board st) (turn st)
+                                            let new_board = makeMove (board st) (turn st) (move)
+                                            let newState =  st {board = fromJust new_board, turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}
+                                            gameLoop newState w
 
 humanGameLoop :: GameState -> Window -> Curses ()
 humanGameLoop st w = do drawGameState st w
                         move <- getMove st w getBestMoveOneDepth
-                        if move == Quit then return ()
-                          else if move == Pass
+                        if move == Pass
                               then do let currentBoard = board st
                                       let newState = st {board = Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard), turn = (other (turn st))}
                                       gameLoop newState w
@@ -156,11 +156,12 @@ getMoveStartTimer st w input = loop input where
                            | otherwise -> loop input
                          Just _ -> loop input
 
-pause :: Window -> Float -> Curses ()
-pause w waitTime = loop where
+pause :: GameState -> Window -> (GameState -> Window -> Curses ()) -> Float -> Curses Action
+pause st w returnScreen waitTime = loop where
     loop = do ev <- getEvent w (Just (round(waitTime*10^3)))
               case ev of
-                   Nothing -> return ()
+                   Nothing -> return Pass
+                   Just (EventCharacter '\ESC') -> return Options
                    Just _ -> loop
 
 undoMove :: GameState -> GameState
@@ -528,8 +529,12 @@ startReversi st w | getPlayerType st == Human = do drawGameState st w
                                                                    if isNothing new_board then invalidMoveScreen st w "That is an invalid move, in Reversi, the first 4 moves must be within the center 2x2 square. Please try another" startReversi
                                                                    else if length (pieces (fromJust new_board)) == 4 then gameLoop (st {board = fromJust new_board, turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}) w
                                                                    else startReversi (st {board = fromJust new_board, turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}) w
-                  | otherwise = do let move = getBestReversiInitialMove (board st) (turn st)
-                                   let new_board = fromJust (makeReversiInitialMove (board st) (turn st) move)
-                                   if length (pieces new_board) == 4 then  gameLoop (st {board = new_board, turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}) w
-                                   else startReversi (st {board = new_board, turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}) w
+                  | otherwise = do drawGameState st w
+                                   action <- pause st w gameLoop boardDisplayTime
+                                   if action == Options then optionsLoop st w startReversi
+                                   else do  let move = getBestReversiInitialMove (board st) (turn st)
+                                            let newBoard = fromJust (makeReversiInitialMove (board st) (turn st) move)
+                                            let newState = (st {board = newBoard, turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])})
+                                            if length (pieces newBoard) == 4 then  gameLoop newState w
+                                            else startReversi newState w
 
