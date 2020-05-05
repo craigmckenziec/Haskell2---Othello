@@ -21,10 +21,10 @@ import UI.NCurses
 import System.IO.Error
 
 hintWaitTime :: Integer
-hintWaitTime = 3-- time delay before hint is given (seconds)
+hintWaitTime = 30-- time delay before hint is given (seconds)
 
 turnTimout :: Integer
-turnTimout = 30
+turnTimout = 60
 
 data Action =  Options | Pass | Undo | Quit | Save | TimeOut | Move String
   deriving Eq
