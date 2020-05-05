@@ -26,6 +26,9 @@ hintWaitTime = 30-- time delay before hint is given (seconds)
 turnTimeout :: Integer
 turnTimeout = 30
 
+boardDisplayTime :: Float
+boardDisplayTime = 1.5-- time that the results of moves are shown for (seconds)
+
 data Action =  Options | Pass | Undo | Quit | Save | TimeOut | Move String
   deriving Eq
 
@@ -42,12 +45,12 @@ gameLoop st w
                             else aiGameLoop st w
 
 gameOverScreen :: GameState -> Window -> Curses ()
-gameOverScreen st w = do let ammountWhite = evaluateBoard (board st) White
-                         let ammountBlack = evaluateBoard (board st) Black
+gameOverScreen st w = do let amountWhite = evaluateBoard (board st) White
+                         let amountBlack = evaluateBoard (board st) Black
                          updateWindow w $ do clear
                                              moveCursor 0 0
-                                             if (ammountBlack > ammountWhite) then drawString "Black Wins!"
-                                             else if (ammountWhite > ammountBlack) then drawString "White Wins!"
+                                             if (amountBlack > amountWhite) then drawString "Black Wins!"
+                                             else if (amountWhite > amountBlack) then drawString "White Wins!"
                                              else drawString "Draw!"
                          updateWindow w $ do moveCursor 1 0
                                              drawString "press enter to return to the menu"
@@ -64,10 +67,12 @@ aiGameLoop st w = do if (length (getPossible (turn st) (board st)) == 0)
                             then do let currentBoard = board st
                                     let newState = st {board = Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard), turn = (other (turn st))}
                                     gameLoop newState w
-                            else do let move = getBestMoveOneDepth (board st) (turn st)
+                            else do drawGameState st w
+                                    pause w boardDisplayTime
+                                    let move = getBestMoveOneDepth (board st) (turn st)
                                     let new_board = makeMove (board st) (turn st) (move)
-                                    if turn st == Black then gameLoop st {board = fromJust new_board, turn = White, previousBoards = ((previousBoards st) ++ [(board st)])} w
-                                                        else gameLoop st {board = fromJust new_board, turn = Black, previousBoards = ((previousBoards st) ++ [(board st)])} w
+                                    let newState =  st {board = fromJust new_board, turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}
+                                    gameLoop newState w
 
 humanGameLoop :: GameState -> Window -> Curses ()
 humanGameLoop st w = do drawGameState st w
@@ -150,8 +155,13 @@ getMoveStartTimer st w input = loop input where
                                                 loop (input ++ [c])
                            | otherwise -> loop input
                          Just _ -> loop input
-                   
 
+pause :: Window -> Float -> Curses ()
+pause w waitTime = loop where
+    loop = do ev <- getEvent w (Just (round(waitTime*10^3)))
+              case ev of
+                   Nothing -> return ()
+                   Just _ -> loop
 
 undoMove :: GameState -> GameState
 undoMove (GameState board turn blackPlayer whitePlayer gameMode hintsToggle previousBoards)
