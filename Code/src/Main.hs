@@ -23,8 +23,8 @@ import System.IO.Error
 hintWaitTime :: Integer
 hintWaitTime = 30-- time delay before hint is given (seconds)
 
-turnTimout :: Integer
-turnTimout = 30
+turnTimeout :: Integer
+turnTimeout = 30
 
 data Action =  Options | Pass | Undo | Quit | Save | TimeOut | Move String
   deriving Eq
@@ -129,7 +129,7 @@ getMove st w getBestMove = loop "" where
 
 getMoveStartTimer :: GameState -> Window -> Curses Action
 getMoveStartTimer st w = loop "" where
-    loop input = do ev <- getEvent w (Just (turnTimout*10^3))
+    loop input = do ev <- getEvent w (Just (turnTimeout*10^3))
                     case ev of
                          Nothing -> return TimeOut
                 
@@ -183,7 +183,7 @@ giveHint st w input getBestMove | hintsToggle st == On = do let (x, y) = getBest
                                                                                 clearLine
                                                                                 drawString ((show (turn st)) ++ "'s turn\n")
                                                                                 drawString ("Hint: " ++ [toEnum (65+x)::Char] ++ (show (y)))
-                                                                                drawString ("\nWarning! You only have " ++ show(turnTimout) ++ " seconds before you automatically pass on your turn!")
+                                                                                drawString ("\nWarning! You only have " ++ show(turnTimeout) ++ " seconds before you automatically pass on your turn!")
                                                                                 drawString "\nmove: "
                                                             render
                                                             when (length input > 0) (do updateWindow w (drawString input)
