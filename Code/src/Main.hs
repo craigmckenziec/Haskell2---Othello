@@ -110,7 +110,7 @@ getMove st w getBestMove = loop "" where
     loop input = do ev <- getEvent w (Just (hintWaitTime*10^3))
                     case ev of
                          Nothing -> do giveHint st w input getBestMove
-                                       getMoveStartTimer st w
+                                       getMoveStartTimer st w input
                          Just (EventSpecialKey KeyBackspace)
                            | length input > 0 -> do updateWindow w (drawString "\b \b")
                                                     render
@@ -128,8 +128,8 @@ getMove st w getBestMove = loop "" where
                            | otherwise -> loop input
                          Just _ -> loop input
 
-getMoveStartTimer :: GameState -> Window -> Curses Action
-getMoveStartTimer st w = loop "" where
+getMoveStartTimer :: GameState -> Window -> String -> Curses Action
+getMoveStartTimer st w input = loop input where
     loop input = do ev <- getEvent w (Just (turnTimeout*10^3))
                     case ev of
                          Nothing -> return TimeOut
