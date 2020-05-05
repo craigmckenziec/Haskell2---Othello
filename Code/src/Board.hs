@@ -1,7 +1,7 @@
 module Board where
 
-data Col = Black | White
-  deriving (Show, Eq)
+data Col = Black | White | ColourError
+  deriving (Show, Eq, Ord)
 
 data PlayerType = AI | Human | PLayerTypeError
   deriving (Show, Eq)
@@ -143,8 +143,8 @@ gameOver gameBoard = if (passes gameBoard) == 2 || length(pieces gameBoard) == (
 
 -- An evaluation function for a minimax search. Given a board and a colour
 -- return an integer indicating how good the board is for that colour.
-evaluate :: Board -> Col -> Int
-evaluate (Board size passes []) searchColour = 0
-evaluate (Board size passes ((_, currentColour): qs)) searchColour =
-            if currentColour == searchColour then evaluate (Board size passes qs) searchColour + 1
-            else evaluate (Board size passes qs) searchColour
+evaluateBoard :: Board -> Col -> Int
+evaluateBoard (Board size passes []) searchColour = 0
+evaluateBoard (Board size passes ((_, currentColour): qs)) searchColour =
+            if currentColour == searchColour then evaluateBoard (Board size passes qs) searchColour + 1
+            else evaluateBoard (Board size passes qs) searchColour

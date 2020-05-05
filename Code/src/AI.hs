@@ -42,40 +42,12 @@ buildTree gen b c = let moves = gen b c in -- generated moves
                              -- successful, make move and build tree from
                              -- here for opposite player
 
--- Get the best next move from a (possibly infinite) game tree. This should
--- traverse the game tree up to a certain depth, and pick the move which
--- leads to the position with the best score for the player whose turn it
--- is at the top of the game tree.
-getBestMove :: Int -- ^ Maximum search depth
-               -> GameTree -- ^ Initial game tree
-               -> Position
-getBestMove = undefined
-
--- Update the world state after some time has passed
-updateGameState :: GameState -- ^ current game state
-                   -> GameState -- ^ new game state after computer move
-updateGameState w = w
-
-{- Hint: 'updateGameState' is where the AI gets called. If the world state
- indicates that it is a computer player's turn, updateGameState should use
- 'getBestMove' to find where the computer player should play, and update
- the board in the world state with that move.
-
- At first, it is reasonable for this to be a random valid move!
-
- If both players are human players, the simple version above will suffice,
- since it does nothing.
-
- In a complete implementation, 'updateGameState' should also check if either
- player has won and display a message if so.
--}
-
 
 evaluateMoves :: Col -> Board -> [Position] -> Position -> Int -> Position
 evaluateMoves colour board [] highestMove highestEvaluate = highestMove
 evaluateMoves colour board (q:qs) highestMove highestEvaluate = do case makeMove board colour q of
                                                                         Nothing -> (0,0) --Should never be reached, used in safe manner
-                                                                        Just board' -> do let potentialMax = evaluate board' colour
+                                                                        Just board' -> do let potentialMax = evaluateBoard board' colour
                                                                                           if potentialMax <= highestEvaluate
                                                                                                 then evaluateMoves colour board qs highestMove highestEvaluate
                                                                                                 else evaluateMoves colour board qs q potentialMax

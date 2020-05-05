@@ -73,7 +73,7 @@ drawPieces :: [(Position, Col)] -> Window -> Curses ()
 drawPieces [] w = return ()
 drawPieces (((x, y), colour):xs) w = do setPieceColour colour w
                                         updateWindow w $ do moveCursor (getYCoord y) (getXCoord x)
-                                                            drawString pieceString
+                                                            drawString " "
                                         drawPieces xs w
 
 getXCoord :: Int -> Integer
@@ -84,6 +84,7 @@ getYCoord y = toInteger (2*y+2)
 
 pieceString :: String
 pieceString = "  "
+
 
 setPieceColour :: Col -> Window -> Curses ()
 setPieceColour Black w = do colourID <- blackColour
