@@ -24,7 +24,7 @@ hintWaitTime :: Integer
 hintWaitTime = 30-- time delay before hint is given (seconds)
 
 turnTimout :: Integer
-turnTimout = 60
+turnTimout = 30
 
 data Action =  Options | Pass | Undo | Quit | Save | TimeOut | Move String
   deriving Eq
