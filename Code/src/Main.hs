@@ -256,7 +256,7 @@ invalidMoveScreen st w message returnScreen = do updateWindow w $ do clear
 timeoutMoveScreen :: GameState -> Window -> (GameState -> Window -> Curses ()) -> Curses ()
 timeoutMoveScreen st w returnScreen = do updateWindow w $ do clear
                                                              moveCursor 0 0
-                                                             drawString "You were automatically passed because you took too long! You only have 30 seconds a turn!"
+                                                             drawString ("You were automatically passed because you took too long! You only have " ++ show(turnTimeout + hintWaitTime) ++" seconds a turn!")
                                                              drawString "\nPress enter to continue"
                                          render
                                          loop where
@@ -496,6 +496,13 @@ startReversi st w | getPlayerType st == Human = do drawGameState st w
                                                    move <- getMove st w getBestReversiInitialMove
                                                    if move == Quit then return ()
                                                    else if move == Options then optionsLoop st w startReversi
+                                                   else if move == Pass then do let currentBoard = board st
+                                                                                let newState = st {board = Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard), turn = (other (turn st))}
+                                                                                startReversi newState w
+                                                   else if move == TimeOut
+                                                       then do let currentBoard = board st
+                                                               let newState = st {board = Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard), turn = (other (turn st))}
+                                                               timeoutMoveScreen newState w startReversi
                                                    else do let (x, y) = getCoord ((\(Move coordinateString) -> coordinateString) move)
                                                            if x == -1 then invalidMoveScreen st w "That is an invalid coordinate, please check your input and try again" startReversi
                                                            else do let new_board = makeReversiInitialMove (board st) (turn st) (x, y)

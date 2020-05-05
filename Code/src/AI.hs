@@ -93,13 +93,13 @@ getBestReversiInitialMove board colour = do let midpoint = div (size board) 2
                                              else if numPieces == 2 then
                                                  if checkPosition board (midpoint-1, midpoint-1) then
                                                      if getColour board (midpoint-1, midpoint-1) == colour then
-                                                         if not (checkPosition board (midpoint, midpoint)) then
-                                                             (midpoint, midpoint)
+                                                         if not (checkPosition board (midpoint-1, midpoint)) then
+                                                             (midpoint-1, midpoint)
                                                          else
                                                              (midpoint, midpoint-1)
                                                      else
-                                                         if not (checkPosition board (midpoint-1, midpoint)) then
-                                                             (midpoint-1, midpoint)
+                                                         if not (checkPosition board (midpoint, midpoint)) then
+                                                             (midpoint, midpoint)
                                                          else
                                                              (midpoint, midpoint-1)
                                                  else if checkPosition board (midpoint, midpoint-1) then
