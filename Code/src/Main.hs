@@ -50,10 +50,14 @@ gameLoop st w
             else do if (turn st) == Black
                         then if blackPlayer st == Human
                             then humanGameLoop st w
-                            else aiGameLoop st w
+                        else if blackPlayer st == AI
+                            then aiGameLoop st w
+                            else advancedAIGameLoop st w
                     else if whitePlayer st == Human
                             then humanGameLoop st w
-                            else aiGameLoop st w
+                         else if whitePlayer st == AI
+                            then aiGameLoop st w
+                            else advancedAIGameLoop st w
 
 -- | Prints the game over screen to the user, including who won (or if it was a draw) and then returns to the main menu
 gameOverScreen :: GameState -- ^ Current GameState
@@ -80,7 +84,7 @@ gameOverScreen st w = do let amountWhite = evaluateBoard (board st) White
 aiGameLoop :: GameState -- ^ Current GameState
         -> Window -- ^ Current Window being displayed
         -> Curses () -- ^ Wrapper for curses that returns to main when complete
-aiGameLoop st w = do if (length (getPossible (turn st) (board st)) == 0)
+aiGameLoop st w = do if (length (getPossible (board st) (turn st)) == 0 || winByPass st == True)
                             then do let currentBoard = board st
                                     let newState = st {board = Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard), turn = (other (turn st))}
                                     gameLoop newState w
@@ -91,6 +95,32 @@ aiGameLoop st w = do if (length (getPossible (turn st) (board st)) == 0)
                                             let new_board = makeMove (board st) (turn st) (move)
                                             let newState =  st {board = fromJust new_board, turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}
                                             gameLoop newState w
+
+-- | The game loop for the advanced any depth AI player
+advancedAIGameLoop :: GameState -- ^ Current GameState
+        -> Window -- ^ Current Window being displayed
+        -> Curses () -- ^ Wrapper for curses that returns to main when complete
+advancedAIGameLoop st w = do if (length (getPossible (board st) (turn st)) == 0 || winByPass st == True)
+                                then do let currentBoard = board st
+                                        let newState = st {board = Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard), turn = (other (turn st))}
+                                        gameLoop newState w
+                                else do drawGameState st w
+                                        action <- pause st w gameLoop boardDisplayTime
+                                        if action == Options then optionsLoop st w gameLoop
+                                        else do let move = getBestMoveAdvanced (board st) (turn st)
+                                                let new_board = makeMove (board st) (turn st) (move)
+                                                let newState =  st {board = fromJust new_board, turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}
+                                                gameLoop newState w
+
+-- | Checks whether or not the AI would win the game by passing right now (e.g. the opponent has just passed and the AI has more pieces)
+winByPass :: GameState -- ^ The current state of the game 
+        -> Bool -- ^ True if the AI would win, False if it wouldn't
+winByPass st = do let currentBoard = board st
+                  if ((passes currentBoard) == 1)
+                    then if ((evaluateBoard (board st) (turn st)) > (evaluateBoard (board st) (other(turn st))))
+                            then True
+                            else False
+                    else False
 
 -- | The gameloop for a human player that recognises input using the getMove function to process the users input and move to the correct next phase
 humanGameLoop :: GameState -- ^ Current GameState
@@ -373,7 +403,7 @@ main = runCurses $ do setEcho False
                                          Right contents -> checkGameState (lines contents) w
                       else do case checkArgs arguments of
                                   Nothing -> do updateWindow w $ do drawString "Invalid Entry -- See below for usage\n"
-                                                                    drawString "Usage: ./Main <BlackPlayerType> (\"AI\" || \"Human\") <WhitePlayerType> (\"AI\" || \"Human\") <Size> (8..26) <GameMode> (\"Othello\" || \"Reversi\") <HintsToggle> (\"On\" || \"Off\")"
+                                                                    drawString "Usage: ./Main <BlackPlayerType> (\"AI\" || \"AdvancedAI\" || \"Human\") <WhitePlayerType> (\"AI\" || \"AdvancedAI\" || \"Human\") <Size> (8..26) <GameMode> (\"Othello\" || \"Reversi\") <HintsToggle> (\"On\" || \"Off\")"
                                                 render
                                                 loop where
                                                                    loop = do ev <- getEvent w Nothing
@@ -517,7 +547,9 @@ checkPlayerType player = if player == "AI"
                                 then AI
                          else if player == "Human"
                                 then Human
-                                else PLayerTypeError
+                         else if player == "AdvancedAI"
+                                then AdvancedAI 
+                         else PLayerTypeError
 
 -- | Check whether a given String representing a Board size is valid or not
 checkBoardSize :: String -- ^ String representing potential board size

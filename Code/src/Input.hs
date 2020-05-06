@@ -71,6 +71,8 @@ buildPlayer :: PlayerType -- ^ PlayerType to be converted
                -> String -- ^ Converted String
 buildPlayer player = if (player == AI)
                         then "AI\n"
+                     else if (player == AdvancedAI)
+                        then "AdvancedAI\n"
                         else "Human\n"
 
 -- | Build a given GameMode into a String
