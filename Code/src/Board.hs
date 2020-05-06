@@ -9,7 +9,7 @@ data Col = Black | White | ColourError
   deriving (Show, Eq, Ord)
 
 -- | PlayerType contains the types that the player can be, AI or Human and a possible PLayerTypeError used for when reading the player in from somewhere
-data PlayerType = AI | Human | PLayerTypeError
+data PlayerType = AI | Human | AdvancedAI | PLayerTypeError
   deriving (Show, Eq)
 
 -- | GameMode contains the modes that the game can be, Othello or Reversi and a possible GameModeError used for when reading the mode in from somewhere
