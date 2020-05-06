@@ -1,3 +1,7 @@
+{-|
+Module : AI
+Description : Module that handles the AI operations of the program, including finding the best move based upon the current board state.
+-}
 module AI where
 
 import Board
@@ -24,7 +28,9 @@ data GameTree = GameTree { game_board :: Board,
 -- unmanageably large game tree!) it could, for example, generate moves
 -- according to various simpler strategies.
 
+-- | Used during bugfixing in order to check the value of variables or function returns
 trace' arg = traceShow arg arg
+
 
 buildTree :: (Board -> Col -> [Position]) -- ^ Move generator
              -> Board -- ^ board state
@@ -43,7 +49,13 @@ buildTree gen b c = let moves = gen b c in -- generated moves
                              -- here for opposite player
 
 
-evaluateMoves :: Col -> Board -> [Position] -> Position -> Int -> Position
+-- |Loops through each given possible move to find what move is regarded as the "best" according the the one depth AI and then returns said move after the best move has been found by reaching the end of the list.
+evaluateMoves :: Col -- ^ The colour of the current AI
+                -> Board -- ^ Current board state
+                -> [Position] -- ^ The list of valid moves the AI could make
+                -> Position -- ^ The current best move
+                -> Int -- ^ The evaluation score of the current best move
+                -> Position
 evaluateMoves colour board [] highestMove highestEvaluate = highestMove
 evaluateMoves colour board (q:qs) highestMove highestEvaluate = do case makeMove board colour q of
                                                                         Nothing -> (0,0) --Should never be reached, used in safe manner
@@ -52,33 +64,50 @@ evaluateMoves colour board (q:qs) highestMove highestEvaluate = do case makeMove
                                                                                                 then evaluateMoves colour board qs highestMove highestEvaluate
                                                                                                 else evaluateMoves colour board qs q potentialMax
 
-getPossible :: Col -> Board -> [Position]
+-- |Finds all possible moves that the current player could find
+getPossible :: Col -- ^ The colour of the current player
+            -> Board -- ^ Current board state
+            -> [Position] -- ^ List of possible moves
 getPossible colour board = filter (\xpos -> isValid board xpos colour) [(xpos,ypos) | xpos <- [0..(size board -1)], ypos <- [0..(size board - 1)]]
 
-isValid :: Board -> Position -> Col -> Bool
+
+-- | Checks if a given move is valid or not for the current player (is on an empty place and successfully flips a piece)
+isValid :: Board -- ^ Current board state
+        -> Position -- ^ Move to be investigated
+        -> Col -- ^ Colour of the current player
+        -> Bool -- ^ Bool represnting whether or not the move is valid 
 isValid board (xpos, ypos) colour = if (checkPosition board (xpos, ypos)) == False
-                                            then do let listWouldBeFlipped = (postiionFlipsList board (xpos, ypos) colour)
+                                            then do let listWouldBeFlipped = (positionFlipsList board (xpos, ypos) colour)
                                                     if (length listWouldBeFlipped) /= 0
                                                       then True
                                                       else False
                                             else False
 
-getBestMoveOneDepth :: Board -> Col -> Position
+-- | Returns the best move according to the one depth AI
+getBestMoveOneDepth :: Board -- ^ Current board state
+                    -> Col -- ^ Current player colour
+                    -> Position -- ^ What the AI believes to be the best move
 getBestMoveOneDepth board colour = do let listOfPositions = getPossible colour board
                                       evaluateMoves colour board listOfPositions (0,0) (-1)
 
-getRandomMove :: Board -> Col -> IO Position
+
+-- | Returns a random move
+getRandomMove :: Board -- ^ Current board state
+                -> Col -- ^ Current player colour
+                -> IO Position -- ^ Random move (must be IO due to random usage but is cleared in method one level higher)
 getRandomMove board colour = do let listOfPositions = getPossible colour board
                                 chooseRandom listOfPositions
 
 
+-- | Takes a list of elements and returns one at random
 chooseRandom :: [a]   -- ^ List to get random value from
              -> IO a  -- ^ Returns random value from list
-chooseRandom xs = do print (length xs)
-                     (xs !!) <$> randomRIO (0, length xs - 1)
+chooseRandom xs = do (xs !!) <$> randomRIO (0, length xs - 1)
 
-
-getBestReversiInitialMove :: Board -> Col -> Position
+-- | Gets the best initial move for reversi placement (according to the AI)
+getBestReversiInitialMove :: Board -- ^ Current board state
+                            -> Col -- ^ Current player colour
+                            -> Position -- ^ Best initial placement 
 getBestReversiInitialMove board colour = do let midpoint = div (size board) 2
                                             let numPieces = length (pieces board)
                                             if numPieces == 1 then
