@@ -9,8 +9,6 @@ import Display
 import Input
 import AI
 
-import Control.Concurrent
-import Control.Concurrent.Async
 import Control.Monad
 import Control.Monad.IO.Class
 import Data.Char
@@ -286,8 +284,8 @@ optionsLoop :: GameState -- ^ Current GameState
 optionsLoop st w returnScreen = do updateWindow w $ do clear
                                                        moveCursor 0 0
                                                        drawString "Options\n\n"
-                                                       drawString ("Black player (AI/Human): " ++ show (blackPlayer st) ++ "\n")
-                                                       drawString ("White player (AI/Human): " ++ show (whitePlayer st) ++ "\n")
+                                                       drawString ("Black player (AI/Advanced AI/Human): " ++ show (blackPlayer st) ++ "\n")
+                                                       drawString ("White player (AI/Advanced AI/Human): " ++ show (whitePlayer st) ++ "\n")
                                                        drawString ("Size (8..26): " ++ show (size (board st)) ++ "\n")
                                                        drawString ("Game mode (Othello/Reversi): " ++ show (gameMode st) ++ "\n")
                                                        drawString ("Hints (On/Off): " ++ show (hintsToggle st) ++ "\n\n")
@@ -305,9 +303,11 @@ optionsLoop st w returnScreen = do updateWindow w $ do clear
                                                  case ev of
                                                       Nothing -> loop
                                                       Just (EventCharacter c)
-                                                        | c == 'b' || c == 'B' -> if (blackPlayer st) == AI then optionsLoop (st {blackPlayer = Human}) w returnScreen
+                                                        | c == 'b' || c == 'B' -> if (blackPlayer st) == AI then optionsLoop (st {blackPlayer = AdvancedAI}) w returnScreen
+                                                                                  else if (blackPlayer st) == AdvancedAI then optionsLoop (st {blackPlayer = Human}) w returnScreen
                                                                                   else optionsLoop (st {blackPlayer = AI}) w returnScreen
-                                                        | c == 'w' || c == 'W' -> if (whitePlayer st) == AI then optionsLoop (st {whitePlayer = Human}) w returnScreen
+                                                        | c == 'w' || c == 'W' -> if (whitePlayer st) == AI then optionsLoop (st {whitePlayer = AdvancedAI}) w returnScreen
+                                                                                  else if (whitePlayer st) == AdvancedAI then optionsLoop (st {whitePlayer = Human}) w returnScreen
                                                                                   else optionsLoop (st {whitePlayer = AI}) w returnScreen
                                                         | c == 's' || c == 'S' -> do new_size <- getNewSize w
                                                                                      if new_size == Nothing then optionsLoop st w returnScreen
