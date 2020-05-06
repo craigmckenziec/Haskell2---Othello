@@ -617,8 +617,11 @@ startReversi st w | getPlayerType st == Human = do drawGameState st w
                                                                    if isNothing new_board then invalidMoveScreen st w "That is an invalid move, in Reversi, the first 4 moves must be within the center 2x2 square. Please try another" startReversi
                                                                    else if length (pieces (fromJust new_board)) == 4 then gameLoop (st {board = fromJust new_board, turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}) w
                                                                    else startReversi (st {board = fromJust new_board, turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}) w
-                  | otherwise = do let move = getBestReversiInitialMove (board st) (turn st)
-                                   let new_board = fromJust (makeReversiInitialMove (board st) (turn st) move)
-                                   if length (pieces new_board) == 4 then  gameLoop (st {board = new_board, turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}) w
-                                   else startReversi (st {board = new_board, turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}) w
+                  | otherwise = do drawGameState st w
+                                   action <- pause st w gameLoop boardDisplayTime
+                                   if action == Options then optionsLoop st w gameLoop
+                                   else do let move = getBestReversiInitialMove (board st) (turn st)
+                                           let new_board = fromJust (makeReversiInitialMove (board st) (turn st) move)
+                                           if length (pieces new_board) == 4 then  gameLoop (st {board = new_board, turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}) w
+                                           else startReversi (st {board = new_board, turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}) w
 

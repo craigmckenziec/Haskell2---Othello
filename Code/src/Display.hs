@@ -53,7 +53,7 @@ drawGameState st w = do let boardSize = size (board st)
                         updateWindow w $ do setColor defaultColorID
                                             moveCursor (toInteger (getYCoord(boardSize))) 0
                                             drawString ((show (turn st)) ++ "'s turn\n")
-                                            drawString ("move: ")
+                                            when ((turn st == Black && blackPlayer st == Human) || (turn st == White && whitePlayer st == Human)) (drawString ("move: "))
                         render
 
 -- | Draw a background to display the current board onto
