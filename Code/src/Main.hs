@@ -28,11 +28,11 @@ boardDisplayTime = 1.5-- time that the results of moves are shown for (seconds)
 
 -- | Time to wait before hint triggers
 hintWaitTime :: Integer -- ^ Time before triggers
-hintWaitTime = 5-- time delay before hint is given (seconds)
+hintWaitTime = 30-- time delay before hint is given (seconds)
 
 -- | Time to wait till turn timout (in addition to hint time)
 turnTimeout :: Integer -- ^ Time before triggers
-turnTimeout = 5
+turnTimeout = 30
 
 -- | Potential actions that can be taken by the user in the Move segment
 data Action =  Options | Pass | Undo | Quit | Save | TimeOut | Move String
