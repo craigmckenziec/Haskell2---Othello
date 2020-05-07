@@ -21,3 +21,13 @@ The list of instructions while playing a match are as follows :
 
 
 -- End usage instructions
+
+NOTE: If a user prefers to use the cabal build option rather than using ghc, they must do the following,
+
+Use the command "cabal build" within the Code directory
+
+Navigate to the Code/dist/build/othello directory
+
+From here you can use any of the instructions above, but replace the word "Main" with "othello"
+
+END NOTE
