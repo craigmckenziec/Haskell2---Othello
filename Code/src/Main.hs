@@ -28,11 +28,11 @@ boardDisplayTime = 1.5-- time that the results of moves are shown for (seconds)
 
 -- | Time to wait before hint triggers
 hintWaitTime :: Integer -- ^ Time before triggers
-hintWaitTime = 30-- time delay before hint is given (seconds)
+hintWaitTime = 5-- time delay before hint is given (seconds)
 
 -- | Time to wait till turn timout (in addition to hint time)
 turnTimeout :: Integer -- ^ Time before triggers
-turnTimeout = 30
+turnTimeout = 5
 
 -- | Potential actions that can be taken by the user in the Move segment
 data Action =  Options | Pass | Undo | Quit | Save | TimeOut | Move String
@@ -129,7 +129,7 @@ humanGameLoop st w = do drawGameState st w
                         if move == Quit then return ()
                           else if move == Pass
                               then do let currentBoard = board st
-                                      let newState = st {board = Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard), turn = (other (turn st))}
+                                      let newState = st {board = Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard), turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}
                                       gameLoop newState w
                           else if move == Options
                               then optionsLoop st w gameLoop
@@ -144,7 +144,7 @@ humanGameLoop st w = do drawGameState st w
                                         else gameLoop newState w
                           else if move == TimeOut 
                               then do let currentBoard = board st
-                                      let newState = st {board = Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard), turn = (other (turn st))}
+                                      let newState = st {board = Board (size currentBoard)  ((passes currentBoard) + 1) (pieces currentBoard), turn = (other (turn st)), previousBoards = ((previousBoards st) ++ [(board st)])}
                                       invalidMoveScreen newState w ("You were automatically passed because you took too long! You only have " ++ show(turnTimeout + hintWaitTime) ++" seconds a turn!") gameLoop
                           else  do
                                   let (x, y) = getCoord ((\(Move coordinateString) -> coordinateString) move)
